@@ -48,7 +48,15 @@ export default function IssuanceForm({ items, recipients }: { items: ItemOption[
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Quantity issued</label>
-          <input name="quantity" type="number" step="0.01" min="0.01" className="input" required />
+          <input
+            name="quantity"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0.01"
+            className="input"
+            required
+          />
         </div>
         <div>
           <label className="label" htmlFor="issuance-recipient">

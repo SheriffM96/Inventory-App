@@ -32,7 +32,15 @@ export default function UsageForm({ items }: { items: ItemOption[] }) {
       <CategoryItemPicker key={resetCount} items={items} itemFieldName="itemId" idPrefix="usage" required />
       <div>
         <label className="label">Quantity used</label>
-        <input name="quantity" type="number" step="0.01" min="0.01" className="input" required />
+        <input
+          name="quantity"
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0.01"
+          className="input"
+          required
+        />
       </div>
       <div>
         <label className="label">Notes (optional)</label>

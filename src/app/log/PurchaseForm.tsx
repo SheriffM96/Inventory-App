@@ -35,11 +35,27 @@ export default function PurchaseForm({ items, vendors }: { items: ItemOption[]; 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Quantity bought</label>
-          <input name="quantity" type="number" step="0.01" min="0.01" className="input" required />
+          <input
+            name="quantity"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0.01"
+            className="input"
+            required
+          />
         </div>
         <div>
           <label className="label">Cost (total paid)</label>
-          <input name="cost" type="number" step="0.01" min="0.01" className="input" required />
+          <input
+            name="cost"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0.01"
+            className="input"
+            required
+          />
         </div>
       </div>
       <div>

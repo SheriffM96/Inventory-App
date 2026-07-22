@@ -53,7 +53,7 @@ export default function AddItemForm({ categories }: { categories: string[] }) {
       </div>
       <div>
         <label className="label">Reorder level (optional)</label>
-        <input name="reorderLevel" type="number" step="0.01" min="0" className="input" />
+        <input name="reorderLevel" type="number" inputMode="decimal" step="0.01" min="0" className="input" />
       </div>
       <div className="sm:col-span-5">
         {state?.error && <p className="text-sm text-red-600 mb-2">{state.error}</p>}

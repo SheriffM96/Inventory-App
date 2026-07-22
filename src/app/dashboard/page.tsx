@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
 import { computeStockLevels } from "@/lib/stock";
 import { formatMoney } from "@/lib/dates";
+import ConfirmDeleteForm from "@/components/ConfirmDeleteForm";
+import { deletePurchaseAction, deleteIssuanceAction, deleteUsageAction } from "@/app/log/actions";
 
 function formatDateTime(date: Date): string {
   return new Date(date).toLocaleString([], {
@@ -145,6 +147,12 @@ export default async function DashboardPage({
                   {p.loggedBy.name}
                   <br />
                   {formatDateTime(p.date)}
+                  <br />
+                  <ConfirmDeleteForm
+                    action={deletePurchaseAction}
+                    id={p.id}
+                    confirmMessage={`Delete this purchase of ${p.quantity.toString()} ${p.item.unit} ${p.item.name}? This cannot be undone.`}
+                  />
                 </span>
               </li>
             ))}
@@ -167,6 +175,12 @@ export default async function DashboardPage({
                   {i.loggedBy.name}
                   <br />
                   {formatDateTime(i.date)}
+                  <br />
+                  <ConfirmDeleteForm
+                    action={deleteIssuanceAction}
+                    id={i.id}
+                    confirmMessage={`Delete this issuance of ${i.quantity.toString()} ${i.item.unit} ${i.item.name} to ${i.recipient.name}? This cannot be undone.`}
+                  />
                 </span>
               </li>
             ))}
@@ -187,6 +201,12 @@ export default async function DashboardPage({
                 {u.loggedBy.name}
                 <br />
                 {formatDateTime(u.date)}
+                <br />
+                <ConfirmDeleteForm
+                  action={deleteUsageAction}
+                  id={u.id}
+                  confirmMessage={`Delete this usage of ${u.quantity.toString()} ${u.item.unit} ${u.item.name}? This cannot be undone.`}
+                />
               </span>
             </li>
           ))}

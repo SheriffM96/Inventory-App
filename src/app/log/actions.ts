@@ -2,8 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireSession } from "@/lib/require-session";
+import { requireSession, requireRole } from "@/lib/require-session";
 import { notifyManager } from "@/lib/notify";
+
+function revalidateActivityPaths() {
+  revalidatePath("/log");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports/daily");
+  revalidatePath("/reports/monthly");
+}
 
 export type LogFormState = { error?: string; success?: string };
 
@@ -59,10 +66,7 @@ export async function logPurchaseAction(_prev: LogFormState, formData: FormData)
     `${session.name} logged a purchase: ${quantity} ${item.unit} of ${item.name} from ${vendor.name} (cost: ${totalCost.toFixed(2)})`
   );
 
-  revalidatePath("/log");
-  revalidatePath("/dashboard");
-  revalidatePath("/reports/daily");
-  revalidatePath("/reports/monthly");
+  revalidateActivityPaths();
   return { success: `Logged purchase of ${quantity} ${item.unit} ${item.name} from ${vendor.name}.` };
 }
 
@@ -106,10 +110,7 @@ export async function logIssuanceAction(_prev: LogFormState, formData: FormData)
     `${session.name} issued ${quantity} ${item.unit} of ${item.name} to ${recipient.name} (${recipient.team})`
   );
 
-  revalidatePath("/log");
-  revalidatePath("/dashboard");
-  revalidatePath("/reports/daily");
-  revalidatePath("/reports/monthly");
+  revalidateActivityPaths();
   return { success: `Issued ${quantity} ${item.unit} ${item.name} to ${recipient.name}.` };
 }
 
@@ -145,9 +146,30 @@ export async function logUsageAction(_prev: LogFormState, formData: FormData): P
     `${session.name} logged usage: ${quantity} ${item.unit} of ${item.name} (${session.role})`
   );
 
-  revalidatePath("/log");
-  revalidatePath("/dashboard");
-  revalidatePath("/reports/daily");
-  revalidatePath("/reports/monthly");
+  revalidateActivityPaths();
   return { success: `Logged usage of ${quantity} ${item.unit} ${item.name}.` };
+}
+
+export async function deletePurchaseAction(formData: FormData): Promise<void> {
+  await requireRole(["MANAGER"]);
+  const id = String(formData.get("id") || "");
+  if (!id) return;
+  await prisma.purchase.delete({ where: { id } }).catch(() => null);
+  revalidateActivityPaths();
+}
+
+export async function deleteIssuanceAction(formData: FormData): Promise<void> {
+  await requireRole(["MANAGER"]);
+  const id = String(formData.get("id") || "");
+  if (!id) return;
+  await prisma.issuance.delete({ where: { id } }).catch(() => null);
+  revalidateActivityPaths();
+}
+
+export async function deleteUsageAction(formData: FormData): Promise<void> {
+  await requireRole(["MANAGER"]);
+  const id = String(formData.get("id") || "");
+  if (!id) return;
+  await prisma.usage.delete({ where: { id } }).catch(() => null);
+  revalidateActivityPaths();
 }

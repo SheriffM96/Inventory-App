@@ -61,19 +61,38 @@ export default async function ItemsPage() {
             <tbody>
               {items.map((item) => {
                 const formId = `item-form-${item.id}`;
+                const toggleFormId = `item-toggle-form-${item.id}`;
                 return (
-                  <tr key={item.id} className={!item.active ? "opacity-50" : undefined}>
+                  <tr key={item.id} className={!item.active ? "bg-stone-100 opacity-60" : undefined}>
                     <td>
                       <form id={formId} action={updateItemAction}>
                         <input type="hidden" name="id" value={item.id} />
                       </form>
-                      <input form={formId} name="name" defaultValue={item.name} className="input" />
+                      <input
+                        form={formId}
+                        name="name"
+                        defaultValue={item.name}
+                        disabled={!item.active}
+                        className="input"
+                      />
                     </td>
                     <td>
-                      <input form={formId} name="category" defaultValue={item.category} className="input" />
+                      <input
+                        form={formId}
+                        name="category"
+                        defaultValue={item.category}
+                        disabled={!item.active}
+                        className="input"
+                      />
                     </td>
                     <td>
-                      <select form={formId} name="unit" defaultValue={item.unit} className="input">
+                      <select
+                        form={formId}
+                        name="unit"
+                        defaultValue={item.unit}
+                        disabled={!item.active}
+                        className="input"
+                      >
                         {UNITS.map((u) => (
                           <option key={u} value={u}>
                             {u}
@@ -86,25 +105,32 @@ export default async function ItemsPage() {
                         form={formId}
                         name="reorderLevel"
                         type="number"
+                        inputMode="decimal"
                         step="0.01"
                         defaultValue={item.reorderLevel ? Number(item.reorderLevel) : undefined}
+                        disabled={!item.active}
                         className="input"
                       />
                     </td>
                     <td>
-                      <button form={formId} type="submit" className="btn-secondary py-1 px-2 text-xs">
+                      {!item.active && (
+                        <span className="text-xs font-medium text-stone-500 mr-2">Inactive</span>
+                      )}
+                      <button
+                        form={formId}
+                        type="submit"
+                        disabled={!item.active}
+                        className="btn-secondary py-1 px-2 text-xs"
+                      >
                         Save
                       </button>
                     </td>
                     <td>
-                      <button
-                        form={formId}
-                        type="submit"
-                        formAction={toggleItemActiveAction}
-                        name="active"
-                        value={String(item.active)}
-                        className="btn-secondary py-1 px-2 text-xs"
-                      >
+                      <form id={toggleFormId} action={toggleItemActiveAction}>
+                        <input type="hidden" name="id" value={item.id} />
+                        <input type="hidden" name="active" value={String(item.active)} />
+                      </form>
+                      <button form={toggleFormId} type="submit" className="btn-secondary py-1 px-2 text-xs">
                         {item.active ? "Deactivate" : "Activate"}
                       </button>
                     </td>
