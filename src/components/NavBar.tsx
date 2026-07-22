@@ -10,7 +10,12 @@ export default function NavBar({ session }: { session: SessionPayload | null }) 
   return (
     <header className="border-b border-stone-200 bg-white">
       <div className="mx-auto max-w-5xl px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
-        <Link href={isManager ? "/dashboard" : "/log"} className="font-semibold text-brand-700 mr-2">
+        <Link
+          href={isManager ? "/dashboard" : "/log"}
+          className="flex items-center gap-2 font-semibold text-brand-700 mr-2"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/mishkak-logo.jpg" alt="" className="w-8 h-8 rounded" />
           Mishkak Inventory
         </Link>
         <nav className="flex flex-wrap gap-4 text-sm text-stone-600">
