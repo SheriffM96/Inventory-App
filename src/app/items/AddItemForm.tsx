@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { UNITS } from "@/lib/units";
 import { createItemAction, ItemFormState } from "./actions";
 
 function SubmitButton() {
@@ -39,7 +40,16 @@ export default function AddItemForm({ categories }: { categories: string[] }) {
       </div>
       <div>
         <label className="label">Unit</label>
-        <input name="unit" type="text" className="input" placeholder="kg, litre, pcs..." required />
+        <select name="unit" className="input" defaultValue="" required>
+          <option value="" disabled>
+            Select a unit
+          </option>
+          {UNITS.map((u) => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </select>
       </div>
       <div>
         <label className="label">Reorder level (optional)</label>

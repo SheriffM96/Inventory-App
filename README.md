@@ -3,16 +3,19 @@
 A simple inventory tracker for Mishkak: log daily purchases and items given out
 (usage), see live stock levels, and generate daily/monthly reports.
 
-- **Storekeeper**: logs purchases and usage (items given out).
-- **Kitchen staff**: logs usage against the kitchen only.
-- **Bar staff**: logs usage against the bar only.
-- **Manager**: view-only - dashboard, reports, item list, and staff management.
-  Managers do not log purchases or usage themselves.
+- **Storekeeper**: logs **purchases** (received from a vendor, cost required)
+  and **issuances** (stock handed to a named person on the kitchen, bar, or
+  cleaning team). Storekeeper does not log "usage."
+- **Kitchen staff**: logs their own **usage** only, and sees an opening/
+  received/used/closing balance for their team, reconciled daily.
+- **Bar staff**: same as kitchen, scoped to the bar team.
+- **Manager**: view-only - dashboard, reports, items & vendors, and staff
+  management. Managers do not log purchases, issuances, or usage themselves.
 
-When logging a purchase or usage entry, staff pick a **category first** (e.g.
+When logging a purchase or issuance, staff pick a **category first** (e.g.
 Dairy & Fats), then the item within that category, which shows the item's
-unit automatically. Every entry also records the **date and time** it
-happened (defaults to now, but can be backdated/edited).
+unit automatically. Every entry is timestamped with the date and time it was
+logged (not editable, so the record always matches when it actually happened).
 
 Staff sign in by picking their name and entering a 4-digit PIN - no emails or
 passwords to manage.
@@ -65,17 +68,21 @@ Open http://localhost:3000 and sign in with one of the seeded demo accounts:
 **Change these PINs (or delete these demo accounts and add real staff) from the
 "Staff" page as the Manager before using this for real.**
 
-The seed script also loads the ingredient list (deduplicated from your costing
-spreadsheet) grouped into practical stock categories - Meat, Poultry &
-Seafood; Dairy & Fats; Fruits & Vegetables; Dry & Pantry Ingredients;
-Beverages & Mocktail Supplies; Disposables & Packaging; Cleaning & Hygiene -
-so you don't have to type them all in by hand. Kitchen equipment and
-tableware are intentionally left out; this app tracks day-to-day consumable
-stock, not durable equipment.
+The seed script also loads the ingredient list (derived from the actual
+Mishkak menu and mocktail recipe book) grouped into practical stock categories
+- Meat, Poultry & Seafood; Dairy & Fats; Fruits & Vegetables; Dry & Pantry
+Ingredients; Beverages & Mocktail Supplies; Disposables & Packaging; Cleaning
+& Hygiene - so you don't have to type them all in by hand. Kitchen equipment
+and tableware are intentionally left out; this app tracks day-to-day
+consumable stock, not durable equipment. It also seeds a handful of demo
+vendors and recipients (named people on each team) - replace these with your
+real suppliers and staff from the "Items & Vendors" page.
 
-Add, edit, or deactivate items any time from the "Items" page, or bulk
-add/update them by uploading an .xlsx file there (see below) - handy whenever
-the menu changes and you need to add or remove ingredients in bulk.
+Add, edit, or deactivate items any time from the "Items & Vendors" page, or
+bulk add/update them by uploading an .xlsx file there (see below) - handy
+whenever the menu changes and you need to add or remove ingredients in bulk.
+Unit is a fixed dropdown list (kg, g, litre, ml, pcs, bunch, tin, bottle, box,
+pack, case, roll, carton, tray) so every item stays consistent.
 
 ## 5. Push to GitHub
 
@@ -111,23 +118,34 @@ production (or add it as a Vercel build step).
 
 ## How stock levels are calculated
 
-Each item has an **opening stock** (0 by default - set it from the Items page
-if you already have stock on hand when you start using the app). Current
-stock on hand is always:
+**Central stock** (what the storekeeper physically has on hand) has an
+**opening stock** (0 by default - set it from the Items page if you already
+have stock when you start using the app), then:
 
 ```
-opening stock + all purchases logged - all usage logged
+opening stock + all purchases logged - all issuances logged
 ```
 
-The Manager Dashboard shows this running balance for every item, and flags
-anything at or below its "reorder level" (also set from the Items page).
+Issuance, not usage, is what leaves the central store - usage is what
+kitchen/bar staff do with stock *after* it's already been handed to them. The
+Manager Dashboard shows this running balance for every item (with a category
+filter), flags anything at or below its "reorder level" (set from the Items &
+Vendors page), and shows the total amount spent on purchases.
+
+**Each team's own balance** (shown to Kitchen/Bar staff on their Log Activity
+page) reconciles daily:
+
+```
+opening balance (yesterday's closing) + received today (issued to their team)
+  - used today (their own usage logs) = closing balance
+```
 
 ## Bulk updating the item list from Excel
 
-From the "Items" page, the Manager can upload an .xlsx file to add or update
-many items at once - useful when the menu changes and ingredients need to be
-added or swapped. The file needs three columns, in any order, with these
-exact header names in row 1:
+From the "Items & Vendors" page, the Manager can download a starter template
+or upload an .xlsx file to add or update many items at once - useful when the
+menu changes and ingredients need to be added or swapped. The file needs
+three columns, in any order, with these exact header names in row 1:
 
 | Item          | Category        | Unit |
 |---------------|-----------------|------|
@@ -142,17 +160,17 @@ deactivate it manually from the item list below the upload button.
 
 ## Reports
 
-- **Daily report** (`/reports/daily`): pick a date, see quantity of every item
-  used that day and every item purchased that day (plus cost), with a CSV
-  download.
+- **Daily report** (`/reports/daily`): pick a date, see every purchase (with
+  vendor and cost), every issuance (with recipient and team), and total usage
+  by item, each with the time it was logged - with a CSV download.
 - **Monthly report** (`/reports/monthly`): pick a month, see quantity bought,
-  amount spent, quantity used, and quantity remaining (as of the end of that
-  month) for every item, with a CSV download.
+  amount spent, quantity issued, quantity used, and quantity remaining (as of
+  the end of that month) for every item, with a CSV download.
 
 ## Adding WhatsApp notifications later
 
 WhatsApp is not wired up yet by design (it needs its own account setup), but
-every purchase/usage log already calls `notifyManager()` in
+every purchase/issuance/usage log already calls `notifyManager()` in
 [`src/lib/notify.ts`](src/lib/notify.ts), and every attempt is recorded in the
 `NotificationLog` table so you can see what *would* have been sent.
 
@@ -169,21 +187,21 @@ To turn it on with Twilio (simplest option):
    ```
 3. In `src/lib/notify.ts`, uncomment the Twilio `fetch(...)` block.
 
-No other code changes are needed - purchases and usage already trigger a
-notification for every entry.
+No other code changes are needed - purchases, issuances, and usage already
+trigger a notification for every entry.
 
 ## Project structure
 
 ```
-prisma/schema.prisma   Database models (User, Item, Purchase, Usage, NotificationLog)
-prisma/seed.ts          Seed data: item list + demo users
-src/lib/                Shared logic: db client, auth/session, stock calculations, notify stub
-src/middleware.ts        Route protection (login required; manager-only pages)
+prisma/schema.prisma   Database models (User, Item, Vendor, Recipient, Purchase, Issuance, Usage, NotificationLog)
+prisma/seed.ts          Seed data: item list, vendors, recipients, demo users
+src/lib/                Shared logic: db client, auth/session, stock calculations, units list, notify stub
+src/middleware.ts        Route protection (login required; manager-only pages; /log blocked for managers)
 src/app/login/           PIN sign-in
-src/app/log/             Log a purchase / log usage (storekeeper, kitchen, bar - not manager)
-src/app/dashboard/       Manager: stock levels + recent activity
+src/app/log/             Purchase + Issuance forms (storekeeper), Usage form + team reconciliation (kitchen/bar)
+src/app/dashboard/       Manager: stock levels (with category filter), purchases, issuances, usage activity
 src/app/reports/         Manager: daily and monthly reports + CSV export
-src/app/items/           Manager: manage the item list
+src/app/items/           Manager: items, vendors, recipients, Excel import/template
 src/app/users/           Manager: manage staff logins
 ```
 

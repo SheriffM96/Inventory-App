@@ -14,14 +14,6 @@ function parsePositiveDecimal(value: FormDataEntryValue | null): number | null {
   return n;
 }
 
-function parseOccurredAt(value: FormDataEntryValue | null): Date {
-  if (value) {
-    const parsed = new Date(String(value));
-    if (!Number.isNaN(parsed.getTime())) return parsed;
-  }
-  return new Date();
-}
-
 export async function logPurchaseAction(_prev: LogFormState, formData: FormData): Promise<LogFormState> {
   const session = await requireSession();
   if (session.role !== "STOREKEEPER") {
@@ -30,27 +22,33 @@ export async function logPurchaseAction(_prev: LogFormState, formData: FormData)
 
   const itemId = String(formData.get("itemId") || "");
   const quantity = parsePositiveDecimal(formData.get("quantity"));
-  const costRaw = formData.get("cost");
-  const totalCost = costRaw && String(costRaw).trim() !== "" ? Number(costRaw) : null;
-  const occurredAt = parseOccurredAt(formData.get("occurredAt"));
+  const totalCost = parsePositiveDecimal(formData.get("cost"));
+  const vendorId = String(formData.get("vendorId") || "");
   const notes = String(formData.get("notes") || "").trim() || null;
 
   if (!itemId || quantity === null) {
     return { error: "Choose an item and enter a valid quantity." };
   }
-  if (totalCost !== null && (!Number.isFinite(totalCost) || totalCost < 0)) {
-    return { error: "Cost must be a positive number." };
+  if (totalCost === null) {
+    return { error: "Cost is required." };
+  }
+  if (!vendorId) {
+    return { error: "Choose a vendor." };
   }
 
-  const item = await prisma.item.findUnique({ where: { id: itemId } });
+  const [item, vendor] = await Promise.all([
+    prisma.item.findUnique({ where: { id: itemId } }),
+    prisma.vendor.findUnique({ where: { id: vendorId } }),
+  ]);
   if (!item) return { error: "Item not found." };
+  if (!vendor) return { error: "Vendor not found." };
 
   await prisma.purchase.create({
     data: {
       itemId,
       quantity,
       totalCost,
-      date: occurredAt,
+      vendorId,
       notes,
       loggedById: session.userId,
     },
@@ -58,43 +56,72 @@ export async function logPurchaseAction(_prev: LogFormState, formData: FormData)
 
   await notifyManager(
     "purchase",
-    `${session.name} logged a purchase: ${quantity} ${item.unit} of ${item.name}${
-      totalCost !== null ? ` (cost: ${totalCost.toFixed(2)})` : ""
-    }`
+    `${session.name} logged a purchase: ${quantity} ${item.unit} of ${item.name} from ${vendor.name} (cost: ${totalCost.toFixed(2)})`
   );
 
   revalidatePath("/log");
   revalidatePath("/dashboard");
   revalidatePath("/reports/daily");
   revalidatePath("/reports/monthly");
-  return { success: `Logged purchase of ${quantity} ${item.unit} ${item.name}.` };
+  return { success: `Logged purchase of ${quantity} ${item.unit} ${item.name} from ${vendor.name}.` };
 }
 
-export async function logUsageAction(_prev: LogFormState, formData: FormData): Promise<LogFormState> {
+export async function logIssuanceAction(_prev: LogFormState, formData: FormData): Promise<LogFormState> {
   const session = await requireSession();
-  if (session.role !== "STOREKEEPER" && session.role !== "KITCHEN" && session.role !== "BAR") {
-    return { error: "You do not have permission to log usage." };
+  if (session.role !== "STOREKEEPER") {
+    return { error: "Only the storekeeper can issue stock." };
   }
 
   const itemId = String(formData.get("itemId") || "");
   const quantity = parsePositiveDecimal(formData.get("quantity"));
-  const occurredAt = parseOccurredAt(formData.get("occurredAt"));
+  const recipientId = String(formData.get("recipientId") || "");
   const notes = String(formData.get("notes") || "").trim() || null;
 
-  // Kitchen/Bar staff can only log against their own department, regardless of
-  // what the (hidden, disabled) form field says - only Storekeeper picks freely.
-  let department: "KITCHEN" | "BAR" | "OTHER";
-  if (session.role === "KITCHEN") {
-    department = "KITCHEN";
-  } else if (session.role === "BAR") {
-    department = "BAR";
-  } else {
-    const submitted = String(formData.get("department") || "OTHER");
-    if (!["KITCHEN", "BAR", "OTHER"].includes(submitted)) {
-      return { error: "Invalid department." };
-    }
-    department = submitted as "KITCHEN" | "BAR" | "OTHER";
+  if (!itemId || quantity === null) {
+    return { error: "Choose an item and enter a valid quantity." };
   }
+  if (!recipientId) {
+    return { error: "Choose who you're issuing this to." };
+  }
+
+  const [item, recipient] = await Promise.all([
+    prisma.item.findUnique({ where: { id: itemId } }),
+    prisma.recipient.findUnique({ where: { id: recipientId } }),
+  ]);
+  if (!item) return { error: "Item not found." };
+  if (!recipient) return { error: "Recipient not found." };
+
+  await prisma.issuance.create({
+    data: {
+      itemId,
+      quantity,
+      recipientId,
+      notes,
+      loggedById: session.userId,
+    },
+  });
+
+  await notifyManager(
+    "issuance",
+    `${session.name} issued ${quantity} ${item.unit} of ${item.name} to ${recipient.name} (${recipient.team})`
+  );
+
+  revalidatePath("/log");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports/daily");
+  revalidatePath("/reports/monthly");
+  return { success: `Issued ${quantity} ${item.unit} ${item.name} to ${recipient.name}.` };
+}
+
+export async function logUsageAction(_prev: LogFormState, formData: FormData): Promise<LogFormState> {
+  const session = await requireSession();
+  if (session.role !== "KITCHEN" && session.role !== "BAR") {
+    return { error: "Only kitchen or bar staff log usage." };
+  }
+
+  const itemId = String(formData.get("itemId") || "");
+  const quantity = parsePositiveDecimal(formData.get("quantity"));
+  const notes = String(formData.get("notes") || "").trim() || null;
 
   if (!itemId || quantity === null) {
     return { error: "Choose an item and enter a valid quantity." };
@@ -107,8 +134,7 @@ export async function logUsageAction(_prev: LogFormState, formData: FormData): P
     data: {
       itemId,
       quantity,
-      department,
-      date: occurredAt,
+      department: session.role,
       notes,
       loggedById: session.userId,
     },
@@ -116,7 +142,7 @@ export async function logUsageAction(_prev: LogFormState, formData: FormData): P
 
   await notifyManager(
     "usage",
-    `${session.name} logged usage: ${quantity} ${item.unit} of ${item.name} issued to ${department}`
+    `${session.name} logged usage: ${quantity} ${item.unit} of ${item.name} (${session.role})`
   );
 
   revalidatePath("/log");

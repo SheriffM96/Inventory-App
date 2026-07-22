@@ -29,7 +29,7 @@ export default function CategoryItemPicker({
   const selectedItem = items.find((i) => i.id === itemId);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-3">
       <div>
         <label className="label" htmlFor={`${idPrefix}-category`}>
           Category
@@ -56,7 +56,7 @@ export default function CategoryItemPicker({
       </div>
       <div>
         <label className="label" htmlFor={`${idPrefix}-item`}>
-          Item {selectedItem ? `(unit: ${selectedItem.unit})` : ""}
+          Item
         </label>
         <select
           id={`${idPrefix}-item`}
@@ -75,6 +75,18 @@ export default function CategoryItemPicker({
               {item.name}
             </option>
           ))}
+        </select>
+      </div>
+      <div>
+        <label className="label" htmlFor={`${idPrefix}-unit`}>
+          Unit
+        </label>
+        <select id={`${idPrefix}-unit`} className="input bg-stone-100" value={selectedItem?.unit ?? ""} disabled>
+          {selectedItem ? (
+            <option value={selectedItem.unit}>{selectedItem.unit}</option>
+          ) : (
+            <option value="">-</option>
+          )}
         </select>
       </div>
     </div>

@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import CategoryItemPicker, { ItemOption } from "@/components/CategoryItemPicker";
-import { toDateTimeLocalValue } from "@/lib/dates";
 import { logPurchaseAction, LogFormState } from "./actions";
+
+export type VendorOption = { id: string; name: string };
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -15,16 +16,11 @@ function SubmitButton() {
   );
 }
 
-export default function PurchaseForm({ items }: { items: ItemOption[] }) {
+export default function PurchaseForm({ items, vendors }: { items: ItemOption[]; vendors: VendorOption[] }) {
   const initialState: LogFormState = {};
   const [state, formAction] = useFormState(logPurchaseAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
   const [resetCount, setResetCount] = useState(0);
-  const [now, setNow] = useState("");
-
-  useEffect(() => {
-    setNow(toDateTimeLocalValue(new Date()));
-  }, [resetCount]);
 
   useEffect(() => {
     if (state?.success) {
@@ -42,27 +38,28 @@ export default function PurchaseForm({ items }: { items: ItemOption[] }) {
           <input name="quantity" type="number" step="0.01" min="0.01" className="input" required />
         </div>
         <div>
-          <label className="label">Cost (total paid, optional)</label>
-          <input name="cost" type="number" step="0.01" min="0" className="input" />
+          <label className="label">Cost (total paid)</label>
+          <input name="cost" type="number" step="0.01" min="0.01" className="input" required />
         </div>
       </div>
       <div>
-        <label className="label" htmlFor="purchase-occurredAt">
-          Date &amp; time received
+        <label className="label" htmlFor="purchase-vendor">
+          Vendor
         </label>
-        <input
-          id="purchase-occurredAt"
-          name="occurredAt"
-          type="datetime-local"
-          className="input"
-          value={now}
-          onChange={(e) => setNow(e.target.value)}
-          required
-        />
+        <select id="purchase-vendor" name="vendorId" className="input" defaultValue="" required>
+          <option value="" disabled>
+            Select a vendor
+          </option>
+          {vendors.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div>
         <label className="label">Notes (optional)</label>
-        <input name="notes" type="text" className="input" placeholder="e.g. supplier name" />
+        <input name="notes" type="text" className="input" placeholder="e.g. delivery reference" />
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state?.success && <p className="text-sm text-green-700">{state.success}</p>}

@@ -4,6 +4,7 @@ import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
+import { UNITS } from "@/lib/units";
 
 export type ItemFormState = { error?: string; success?: string };
 
@@ -18,6 +19,9 @@ export async function createItemAction(_prev: ItemFormState, formData: FormData)
 
   if (!name || !category || !unit) {
     return { error: "Name, category, and unit are required." };
+  }
+  if (!(UNITS as readonly string[]).includes(unit)) {
+    return { error: "Choose a valid unit." };
   }
 
   const openingStock = openingStockRaw && String(openingStockRaw).trim() !== "" ? Number(openingStockRaw) : 0;
@@ -50,6 +54,7 @@ export async function updateItemAction(formData: FormData): Promise<void> {
     reorderLevelRaw && String(reorderLevelRaw).trim() !== "" ? Number(reorderLevelRaw) : null;
 
   if (!id || !name || !category || !unit) return;
+  if (!(UNITS as readonly string[]).includes(unit)) return;
 
   await prisma.item.update({
     where: { id },
@@ -114,15 +119,20 @@ export async function importItemsAction(_prev: ItemFormState, formData: FormData
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let invalidUnit = 0;
 
   for (let r = 2; r <= worksheet.rowCount; r++) {
     const row = worksheet.getRow(r);
     const name = String(row.getCell(nameCol).value ?? "").trim();
     const category = String(row.getCell(categoryCol).value ?? "").trim();
-    const unit = String(row.getCell(unitCol).value ?? "").trim();
+    const unit = String(row.getCell(unitCol).value ?? "").trim().toLowerCase();
 
     if (!name || !category || !unit) {
       skipped++;
+      continue;
+    }
+    if (!(UNITS as readonly string[]).includes(unit)) {
+      invalidUnit++;
       continue;
     }
 
@@ -140,8 +150,13 @@ export async function importItemsAction(_prev: ItemFormState, formData: FormData
   revalidatePath("/log");
   revalidatePath("/dashboard");
 
-  const skippedNote = skipped > 0 ? `, skipped ${skipped} row(s) missing a value` : "";
+  const notes: string[] = [];
+  if (skipped > 0) notes.push(`skipped ${skipped} row(s) missing a value`);
+  if (invalidUnit > 0)
+    notes.push(`skipped ${invalidUnit} row(s) with a unit not in the standard list (${UNITS.join(", ")})`);
+  const notesText = notes.length > 0 ? `, ${notes.join("; ")}` : "";
+
   return {
-    success: `Import complete: ${created} item(s) added, ${updated} updated${skippedNote}. Nothing was removed - deactivate items you no longer stock from the list below.`,
+    success: `Import complete: ${created} item(s) added, ${updated} updated${notesText}. Nothing was removed - deactivate items you no longer stock from the list below.`,
   };
 }

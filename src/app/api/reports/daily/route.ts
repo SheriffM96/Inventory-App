@@ -8,6 +8,10 @@ function csvEscape(value: string | number): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+function formatTime(date: Date): string {
+  return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "MANAGER") {
@@ -19,8 +23,13 @@ export async function GET(req: NextRequest) {
   const range = { gte: startOfDay(date), lte: endOfDay(date) };
   const dateValue = toDateInputValue(date);
 
-  const [purchases, usage] = await Promise.all([
-    prisma.purchase.findMany({ where: { date: range }, include: { item: true } }),
+  const [purchases, issuances, usage] = await Promise.all([
+    prisma.purchase.findMany({ where: { date: range }, include: { item: true, vendor: true }, orderBy: { date: "asc" } }),
+    prisma.issuance.findMany({
+      where: { date: range },
+      include: { item: true, recipient: true },
+      orderBy: { date: "asc" },
+    }),
     prisma.usage.findMany({ where: { date: range }, include: { item: true } }),
   ]);
 
@@ -31,23 +40,40 @@ export async function GET(req: NextRequest) {
     usedByItem.set(u.itemId, entry);
   }
 
-  const purchasedByItem = new Map<string, { name: string; unit: string; qty: number; cost: number }>();
-  for (const p of purchases) {
-    const entry = purchasedByItem.get(p.itemId) ?? { name: p.item.name, unit: p.item.unit, qty: 0, cost: 0 };
-    entry.qty += Number(p.quantity);
-    entry.cost += p.totalCost ? Number(p.totalCost) : 0;
-    purchasedByItem.set(p.itemId, entry);
-  }
-
   const lines: string[] = [];
-  lines.push(`Daily Consumption Report,${dateValue}`);
+  lines.push(`Daily Report,${dateValue}`);
   lines.push("");
-  lines.push("Section,Item,Quantity,Unit,Cost");
-  for (const e of usedByItem.values()) {
-    lines.push(["Used", csvEscape(e.name), e.qty, e.unit, ""].join(","));
+  lines.push("Section,Item,Quantity,Unit,Cost,Vendor/Recipient,Team,Time");
+  for (const p of purchases) {
+    lines.push(
+      [
+        "Purchased",
+        csvEscape(p.item.name),
+        p.quantity.toString(),
+        p.item.unit,
+        Number(p.totalCost).toFixed(2),
+        csvEscape(p.vendor.name),
+        "",
+        formatTime(p.date),
+      ].join(",")
+    );
   }
-  for (const e of purchasedByItem.values()) {
-    lines.push(["Purchased", csvEscape(e.name), e.qty, e.unit, e.cost.toFixed(2)].join(","));
+  for (const i of issuances) {
+    lines.push(
+      [
+        "Issued",
+        csvEscape(i.item.name),
+        i.quantity.toString(),
+        i.item.unit,
+        "",
+        csvEscape(i.recipient.name),
+        i.recipient.team,
+        formatTime(i.date),
+      ].join(",")
+    );
+  }
+  for (const e of usedByItem.values()) {
+    lines.push(["Used", csvEscape(e.name), e.qty, e.unit, "", "", "", ""].join(","));
   }
 
   const csv = lines.join("\n");

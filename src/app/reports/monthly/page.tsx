@@ -14,8 +14,9 @@ export default async function MonthlyReportPage({
   const { start, end } = monthRange(year, month);
   const monthValue = toMonthInputValue(start);
 
-  const [purchases, usage, remainingAsOfMonthEnd] = await Promise.all([
+  const [purchases, issuances, usage, remainingAsOfMonthEnd] = await Promise.all([
     prisma.purchase.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
+    prisma.issuance.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     prisma.usage.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     computeStockLevels(end),
   ]);
@@ -26,6 +27,7 @@ export default async function MonthlyReportPage({
     unit: string;
     qtyBought: number;
     amountSpent: number;
+    qtyIssued: number;
     qtyUsed: number;
     remaining: number;
   };
@@ -33,33 +35,35 @@ export default async function MonthlyReportPage({
   const rows = new Map<string, Row>();
   const remainingByItem = new Map(remainingAsOfMonthEnd.map((s) => [s.itemId, s.remaining]));
 
-  for (const p of purchases) {
-    const row = rows.get(p.itemId) ?? {
-      itemId: p.itemId,
-      name: p.item.name,
-      unit: p.item.unit,
+  const getRow = (itemId: string, name: string, unit: string): Row => {
+    const existing = rows.get(itemId);
+    if (existing) return existing;
+    const fresh: Row = {
+      itemId,
+      name,
+      unit,
       qtyBought: 0,
       amountSpent: 0,
+      qtyIssued: 0,
       qtyUsed: 0,
-      remaining: remainingByItem.get(p.itemId) ?? 0,
+      remaining: remainingByItem.get(itemId) ?? 0,
     };
-    row.qtyBought += Number(p.quantity);
-    row.amountSpent += p.totalCost ? Number(p.totalCost) : 0;
-    rows.set(p.itemId, row);
-  }
+    rows.set(itemId, fresh);
+    return fresh;
+  };
 
+  for (const p of purchases) {
+    const row = getRow(p.itemId, p.item.name, p.item.unit);
+    row.qtyBought += Number(p.quantity);
+    row.amountSpent += Number(p.totalCost);
+  }
+  for (const i of issuances) {
+    const row = getRow(i.itemId, i.item.name, i.item.unit);
+    row.qtyIssued += Number(i.quantity);
+  }
   for (const u of usage) {
-    const row = rows.get(u.itemId) ?? {
-      itemId: u.itemId,
-      name: u.item.name,
-      unit: u.item.unit,
-      qtyBought: 0,
-      amountSpent: 0,
-      qtyUsed: 0,
-      remaining: remainingByItem.get(u.itemId) ?? 0,
-    };
+    const row = getRow(u.itemId, u.item.name, u.item.unit);
     row.qtyUsed += Number(u.quantity);
-    rows.set(u.itemId, row);
   }
 
   const sortedRows = Array.from(rows.values()).sort((a, b) => a.name.localeCompare(b.name));
@@ -83,7 +87,7 @@ export default async function MonthlyReportPage({
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold mb-3">{monthValue} - Bought, Used &amp; Remaining</h2>
+        <h2 className="text-lg font-semibold mb-3">{monthValue} - Bought, Issued, Used &amp; Remaining</h2>
         {sortedRows.length === 0 ? (
           <p className="text-sm text-stone-500">No activity logged for this month.</p>
         ) : (
@@ -95,6 +99,7 @@ export default async function MonthlyReportPage({
                     <th>Item</th>
                     <th>Qty Bought</th>
                     <th>Amount Spent</th>
+                    <th>Qty Issued</th>
                     <th>Qty Used</th>
                     <th>Qty Remaining (end of month)</th>
                   </tr>
@@ -107,6 +112,9 @@ export default async function MonthlyReportPage({
                         {r.qtyBought} {r.unit}
                       </td>
                       <td>{r.amountSpent ? formatMoney(r.amountSpent) : "-"}</td>
+                      <td>
+                        {r.qtyIssued} {r.unit}
+                      </td>
                       <td>
                         {r.qtyUsed} {r.unit}
                       </td>

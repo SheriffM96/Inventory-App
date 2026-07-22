@@ -16,7 +16,7 @@ export default function NavBar({ session }: { session: SessionPayload | null }) 
         <nav className="flex flex-wrap gap-4 text-sm text-stone-600">
           {!isManager && (
             <Link href="/log" className="hover:text-brand-700">
-              Log Purchase / Usage
+              Log Activity
             </Link>
           )}
           {isManager && (
@@ -31,7 +31,7 @@ export default function NavBar({ session }: { session: SessionPayload | null }) 
                 Monthly Report
               </Link>
               <Link href="/items" className="hover:text-brand-700">
-                Items
+                Items &amp; Vendors
               </Link>
               <Link href="/users" className="hover:text-brand-700">
                 Staff

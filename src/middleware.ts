@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 
-const MANAGER_ONLY_PREFIXES = ["/dashboard", "/reports", "/items", "/users", "/api/reports"];
+const MANAGER_ONLY_PREFIXES = ["/dashboard", "/reports", "/items", "/users", "/api/reports", "/api/items"];
 const NON_MANAGER_PREFIXES = ["/log"];
 const PUBLIC_PATHS = ["/login"];
 

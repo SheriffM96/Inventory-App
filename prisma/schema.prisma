@@ -14,10 +14,10 @@ enum Role {
   MANAGER
 }
 
-enum Department {
+enum Team {
   KITCHEN
   BAR
-  OTHER
+  CLEANING
 }
 
 model User {
@@ -29,21 +29,42 @@ model User {
   createdAt DateTime @default(now())
 
   purchases Purchase[]
+  issuances Issuance[]
   usages    Usage[]
 }
 
 model Item {
-  id            String   @id @default(cuid())
-  name          String   @unique
-  category      String
-  unit          String
-  openingStock  Decimal  @default(0) @db.Decimal(12, 2)
-  reorderLevel  Decimal? @db.Decimal(12, 2)
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  name         String   @unique
+  category     String
+  unit         String
+  openingStock Decimal  @default(0) @db.Decimal(12, 2)
+  reorderLevel Decimal? @db.Decimal(12, 2)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
 
   purchases Purchase[]
+  issuances Issuance[]
   usages    Usage[]
+}
+
+model Vendor {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  purchases Purchase[]
+}
+
+model Recipient {
+  id        String   @id @default(cuid())
+  name      String
+  team      Team
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  issuances Issuance[]
 }
 
 model Purchase {
@@ -51,7 +72,9 @@ model Purchase {
   item       Item     @relation(fields: [itemId], references: [id])
   itemId     String
   quantity   Decimal  @db.Decimal(12, 2)
-  totalCost  Decimal? @db.Decimal(12, 2)
+  totalCost  Decimal  @db.Decimal(12, 2)
+  vendor     Vendor   @relation(fields: [vendorId], references: [id])
+  vendorId   String
   date       DateTime @default(now())
   notes      String?
   loggedBy   User     @relation(fields: [loggedById], references: [id])
@@ -62,17 +85,38 @@ model Purchase {
   @@index([itemId])
 }
 
+/// Storekeeper issues stock out to a named person on the kitchen, bar, or
+/// cleaning team. This is what reduces the central/storekeeper stock balance.
+model Issuance {
+  id          String    @id @default(cuid())
+  item        Item      @relation(fields: [itemId], references: [id])
+  itemId      String
+  quantity    Decimal   @db.Decimal(12, 2)
+  recipient   Recipient @relation(fields: [recipientId], references: [id])
+  recipientId String
+  date        DateTime  @default(now())
+  notes       String?
+  loggedBy    User      @relation(fields: [loggedById], references: [id])
+  loggedById  String
+  createdAt   DateTime  @default(now())
+
+  @@index([date])
+  @@index([itemId])
+}
+
+/// Kitchen/Bar staff logging their own consumption during service. Does not
+/// affect the central stock balance - that already left when issued.
 model Usage {
-  id         String     @id @default(cuid())
-  item       Item       @relation(fields: [itemId], references: [id])
+  id         String   @id @default(cuid())
+  item       Item     @relation(fields: [itemId], references: [id])
   itemId     String
-  quantity   Decimal    @db.Decimal(12, 2)
-  department Department @default(OTHER)
-  date       DateTime   @default(now())
+  quantity   Decimal  @db.Decimal(12, 2)
+  department Team
+  date       DateTime @default(now())
   notes      String?
-  loggedBy   User       @relation(fields: [loggedById], references: [id])
+  loggedBy   User     @relation(fields: [loggedById], references: [id])
   loggedById String
-  createdAt  DateTime   @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([date])
   @@index([itemId])

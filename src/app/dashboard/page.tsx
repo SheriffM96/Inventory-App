@@ -2,14 +2,33 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
 import { computeStockLevels } from "@/lib/stock";
+import { formatMoney } from "@/lib/dates";
 
-export default async function DashboardPage() {
+function formatDateTime(date: Date): string {
+  return new Date(date).toLocaleString([], {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: { category?: string };
+}) {
   await requireRole(["MANAGER"]);
 
-  const [stockLevels, recentPurchases, recentUsage] = await Promise.all([
+  const [stockLevels, recentPurchases, recentIssuances, recentUsage, purchaseTotal] = await Promise.all([
     computeStockLevels(),
     prisma.purchase.findMany({
-      include: { item: true, loggedBy: true },
+      include: { item: true, vendor: true, loggedBy: true },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    }),
+    prisma.issuance.findMany({
+      include: { item: true, recipient: true, loggedBy: true },
       orderBy: { createdAt: "desc" },
       take: 8,
     }),
@@ -18,9 +37,16 @@ export default async function DashboardPage() {
       orderBy: { createdAt: "desc" },
       take: 8,
     }),
+    prisma.purchase.aggregate({ _sum: { totalCost: true } }),
   ]);
 
   const lowStockItems = stockLevels.filter((s) => s.lowStock);
+  const categories = Array.from(new Set(stockLevels.map((s) => s.category))).sort();
+  const selectedCategory = searchParams.category ?? "";
+  const visibleStockLevels = selectedCategory
+    ? stockLevels.filter((s) => s.category === selectedCategory)
+    : stockLevels;
+  const totalPurchaseAmount = Number(purchaseTotal._sum.totalCost ?? 0);
 
   return (
     <div className="space-y-6">
@@ -34,6 +60,11 @@ export default async function DashboardPage() {
             Monthly Report
           </Link>
         </div>
+      </div>
+
+      <div className="card">
+        <p className="text-sm text-stone-500">Total Purchases (all time)</p>
+        <p className="text-2xl font-semibold text-brand-700">{formatMoney(totalPurchaseAmount)}</p>
       </div>
 
       {lowStockItems.length > 0 && (
@@ -50,7 +81,22 @@ export default async function DashboardPage() {
       )}
 
       <div className="card">
-        <h2 className="text-lg font-semibold mb-3">Current Stock Levels</h2>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+          <h2 className="text-lg font-semibold">Current Stock Levels</h2>
+          <form method="GET" className="flex items-center gap-2">
+            <select name="category" defaultValue={selectedCategory} className="input">
+              <option value="">All categories</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="btn-secondary">
+              Filter
+            </button>
+          </form>
+        </div>
         <div className="overflow-x-auto">
           <table className="table-base">
             <thead>
@@ -58,12 +104,12 @@ export default async function DashboardPage() {
                 <th>Category</th>
                 <th>Item</th>
                 <th>Purchased</th>
-                <th>Used</th>
+                <th>Issued</th>
                 <th>On Hand</th>
               </tr>
             </thead>
             <tbody>
-              {stockLevels.map((s) => (
+              {visibleStockLevels.map((s) => (
                 <tr key={s.itemId} className={s.lowStock ? "bg-amber-50" : undefined}>
                   <td className="text-stone-500">{s.category}</td>
                   <td>{s.name}</td>
@@ -71,7 +117,7 @@ export default async function DashboardPage() {
                     {s.totalPurchased} {s.unit}
                   </td>
                   <td>
-                    {s.totalUsed} {s.unit}
+                    {s.totalIssued} {s.unit}
                   </td>
                   <td className="font-medium">
                     {s.remaining} {s.unit}
@@ -88,12 +134,17 @@ export default async function DashboardPage() {
           <h2 className="text-lg font-semibold mb-3">Recent Purchases</h2>
           <ul className="text-sm space-y-2">
             {recentPurchases.map((p) => (
-              <li key={p.id} className="flex justify-between border-b border-stone-100 pb-2">
+              <li key={p.id} className="flex justify-between border-b border-stone-100 pb-2 gap-2">
                 <span>
                   {p.item.name} - {p.quantity.toString()} {p.item.unit}
+                  <span className="text-stone-500"> from {p.vendor.name}</span>
+                  <br />
+                  <span className="text-stone-500">{formatMoney(Number(p.totalCost))}</span>
                 </span>
-                <span className="text-stone-500">
-                  {p.loggedBy.name}, {new Date(p.date).toLocaleDateString()}
+                <span className="text-stone-500 whitespace-nowrap text-right">
+                  {p.loggedBy.name}
+                  <br />
+                  {formatDateTime(p.date)}
                 </span>
               </li>
             ))}
@@ -101,21 +152,46 @@ export default async function DashboardPage() {
           </ul>
         </div>
         <div className="card">
-          <h2 className="text-lg font-semibold mb-3">Recent Usage</h2>
+          <h2 className="text-lg font-semibold mb-3">Recent Issuances</h2>
           <ul className="text-sm space-y-2">
-            {recentUsage.map((u) => (
-              <li key={u.id} className="flex justify-between border-b border-stone-100 pb-2">
+            {recentIssuances.map((i) => (
+              <li key={i.id} className="flex justify-between border-b border-stone-100 pb-2 gap-2">
                 <span>
-                  {u.item.name} - {u.quantity.toString()} {u.item.unit} ({u.department})
+                  {i.item.name} - {i.quantity.toString()} {i.item.unit}
+                  <span className="text-stone-500">
+                    {" "}
+                    to {i.recipient.name} ({i.recipient.team})
+                  </span>
                 </span>
-                <span className="text-stone-500">
-                  {u.loggedBy.name}, {new Date(u.date).toLocaleDateString()}
+                <span className="text-stone-500 whitespace-nowrap text-right">
+                  {i.loggedBy.name}
+                  <br />
+                  {formatDateTime(i.date)}
                 </span>
               </li>
             ))}
-            {recentUsage.length === 0 && <p className="text-stone-500">No usage logged yet.</p>}
+            {recentIssuances.length === 0 && <p className="text-stone-500">No issuances logged yet.</p>}
           </ul>
         </div>
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Recent Usage</h2>
+        <ul className="text-sm space-y-2">
+          {recentUsage.map((u) => (
+            <li key={u.id} className="flex justify-between border-b border-stone-100 pb-2 gap-2">
+              <span>
+                {u.item.name} - {u.quantity.toString()} {u.item.unit} ({u.department})
+              </span>
+              <span className="text-stone-500 whitespace-nowrap text-right">
+                {u.loggedBy.name}
+                <br />
+                {formatDateTime(u.date)}
+              </span>
+            </li>
+          ))}
+          {recentUsage.length === 0 && <p className="text-stone-500">No usage logged yet.</p>}
+        </ul>
       </div>
     </div>
   );
