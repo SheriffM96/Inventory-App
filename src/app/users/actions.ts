@@ -8,7 +8,7 @@ import { Role } from "@/lib/session";
 
 export type UserFormState = { error?: string; success?: string };
 
-const VALID_ROLES: Role[] = ["STOREKEEPER", "KITCHEN_BAR", "MANAGER"];
+const VALID_ROLES: Role[] = ["STOREKEEPER", "KITCHEN", "BAR", "MANAGER"];
 
 export async function createUserAction(_prev: UserFormState, formData: FormData): Promise<UserFormState> {
   await requireRole(["MANAGER"]);

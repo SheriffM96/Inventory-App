@@ -3,9 +3,16 @@
 A simple inventory tracker for Mishkak: log daily purchases and items given out
 (usage), see live stock levels, and generate daily/monthly reports.
 
-- **Storekeeper**: logs purchases and usage.
-- **Kitchen / Bar staff**: logs usage (items given out) only.
-- **Manager**: sees everything, plus reports, item list, and staff management.
+- **Storekeeper**: logs purchases and usage (items given out).
+- **Kitchen staff**: logs usage against the kitchen only.
+- **Bar staff**: logs usage against the bar only.
+- **Manager**: view-only - dashboard, reports, item list, and staff management.
+  Managers do not log purchases or usage themselves.
+
+When logging a purchase or usage entry, staff pick a **category first** (e.g.
+Dairy & Fats), then the item within that category, which shows the item's
+unit automatically. Every entry also records the **date and time** it
+happened (defaults to now, but can be backdated/edited).
 
 Staff sign in by picking their name and entering a 4-digit PIN - no emails or
 passwords to manage.
@@ -51,15 +58,24 @@ Open http://localhost:3000 and sign in with one of the seeded demo accounts:
 | Name           | Role              | PIN  |
 |----------------|-------------------|------|
 | Storekeeper    | Storekeeper       | 1111 |
-| Kitchen Staff  | Kitchen / Bar     | 2222 |
+| Kitchen Staff  | Kitchen         | 2222 |
+| Bar Staff      | Bar             | 3333 |
 | Manager        | Manager           | 9999 |
 
 **Change these PINs (or delete these demo accounts and add real staff) from the
 "Staff" page as the Manager before using this for real.**
 
-The seed script also loads ~130 ingredient/equipment items (deduplicated from
-your costing spreadsheet) so you don't have to type them all in by hand. Add,
-edit, or deactivate items any time from the "Items" page.
+The seed script also loads the ingredient list (deduplicated from your costing
+spreadsheet) grouped into practical stock categories - Meat, Poultry &
+Seafood; Dairy & Fats; Fruits & Vegetables; Dry & Pantry Ingredients;
+Beverages & Mocktail Supplies; Disposables & Packaging; Cleaning & Hygiene -
+so you don't have to type them all in by hand. Kitchen equipment and
+tableware are intentionally left out; this app tracks day-to-day consumable
+stock, not durable equipment.
+
+Add, edit, or deactivate items any time from the "Items" page, or bulk
+add/update them by uploading an .xlsx file there (see below) - handy whenever
+the menu changes and you need to add or remove ingredients in bulk.
 
 ## 5. Push to GitHub
 
@@ -106,6 +122,24 @@ opening stock + all purchases logged - all usage logged
 The Manager Dashboard shows this running balance for every item, and flags
 anything at or below its "reorder level" (also set from the Items page).
 
+## Bulk updating the item list from Excel
+
+From the "Items" page, the Manager can upload an .xlsx file to add or update
+many items at once - useful when the menu changes and ingredients need to be
+added or swapped. The file needs three columns, in any order, with these
+exact header names in row 1:
+
+| Item          | Category        | Unit |
+|---------------|-----------------|------|
+| Sumac         | Dry & Pantry Ingredients | g    |
+| Pomegranate juice | Beverages & Mocktail Supplies | litre |
+
+("Name" also works instead of "Item".) Existing items are matched by name
+(case-sensitive) and have their category/unit updated; anything not already
+in the system is added as a new item. **Nothing is ever deleted or
+deactivated by an upload** - if an ingredient has been dropped from the menu,
+deactivate it manually from the item list below the upload button.
+
 ## Reports
 
 - **Daily report** (`/reports/daily`): pick a date, see quantity of every item
@@ -146,7 +180,7 @@ prisma/seed.ts          Seed data: item list + demo users
 src/lib/                Shared logic: db client, auth/session, stock calculations, notify stub
 src/middleware.ts        Route protection (login required; manager-only pages)
 src/app/login/           PIN sign-in
-src/app/log/             Log a purchase / log usage (storekeeper, kitchen/bar, manager)
+src/app/log/             Log a purchase / log usage (storekeeper, kitchen, bar - not manager)
 src/app/dashboard/       Manager: stock levels + recent activity
 src/app/reports/         Manager: daily and monthly reports + CSV export
 src/app/items/           Manager: manage the item list

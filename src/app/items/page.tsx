@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
 import AddItemForm from "./AddItemForm";
+import ImportItemsForm from "./ImportItemsForm";
 import { toggleItemActiveAction, updateItemAction } from "./actions";
 
 export default async function ItemsPage() {
@@ -12,6 +13,11 @@ export default async function ItemsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Manage Items</h1>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Bulk Import from Excel</h2>
+        <ImportItemsForm />
+      </div>
 
       <div className="card">
         <h2 className="text-lg font-semibold mb-3">Add a New Item</h2>

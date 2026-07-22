@@ -32,7 +32,8 @@ export default function AddUserForm() {
         <label className="label">Role</label>
         <select name="role" className="input" defaultValue="STOREKEEPER">
           <option value="STOREKEEPER">Storekeeper</option>
-          <option value="KITCHEN_BAR">Kitchen / Bar Staff</option>
+          <option value="KITCHEN">Kitchen Staff</option>
+          <option value="BAR">Bar Staff</option>
           <option value="MANAGER">Manager</option>
         </select>
       </div>

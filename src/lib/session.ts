@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 export const SESSION_COOKIE = "mishkak_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
-export type Role = "STOREKEEPER" | "KITCHEN_BAR" | "MANAGER";
+export type Role = "STOREKEEPER" | "KITCHEN" | "BAR" | "MANAGER";
 
 export type SessionPayload = {
   userId: string;

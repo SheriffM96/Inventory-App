@@ -5,7 +5,8 @@ import { resetPinAction, toggleUserActiveAction, updateUserRoleAction } from "./
 
 const ROLE_LABELS: Record<string, string> = {
   STOREKEEPER: "Storekeeper",
-  KITCHEN_BAR: "Kitchen / Bar Staff",
+  KITCHEN: "Kitchen Staff",
+  BAR: "Bar Staff",
   MANAGER: "Manager",
 };
 

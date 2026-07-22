@@ -10,13 +10,15 @@ export default function NavBar({ session }: { session: SessionPayload | null }) 
   return (
     <header className="border-b border-stone-200 bg-white">
       <div className="mx-auto max-w-5xl px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
-        <Link href="/log" className="font-semibold text-brand-700 mr-2">
+        <Link href={isManager ? "/dashboard" : "/log"} className="font-semibold text-brand-700 mr-2">
           Mishkak Inventory
         </Link>
         <nav className="flex flex-wrap gap-4 text-sm text-stone-600">
-          <Link href="/log" className="hover:text-brand-700">
-            Log Purchase / Usage
-          </Link>
+          {!isManager && (
+            <Link href="/log" className="hover:text-brand-700">
+              Log Purchase / Usage
+            </Link>
+          )}
           {isManager && (
             <>
               <Link href="/dashboard" className="hover:text-brand-700">
@@ -39,7 +41,7 @@ export default function NavBar({ session }: { session: SessionPayload | null }) 
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm">
           <span className="text-stone-500">
-            {session.name} <span className="text-stone-400">({session.role.replace("_", "/")})</span>
+            {session.name} <span className="text-stone-400">({session.role})</span>
           </span>
           <form action={logoutAction}>
             <button type="submit" className="btn-secondary py-1 px-3">

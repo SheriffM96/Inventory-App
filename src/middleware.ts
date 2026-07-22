@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 
 const MANAGER_ONLY_PREFIXES = ["/dashboard", "/reports", "/items", "/users", "/api/reports"];
+const NON_MANAGER_PREFIXES = ["/log"];
 const PUBLIC_PATHS = ["/login"];
 
 export async function middleware(req: NextRequest) {
@@ -22,6 +23,10 @@ export async function middleware(req: NextRequest) {
 
   if (MANAGER_ONLY_PREFIXES.some((p) => pathname.startsWith(p)) && session.role !== "MANAGER") {
     return NextResponse.redirect(new URL("/log", req.url));
+  }
+
+  if (NON_MANAGER_PREFIXES.some((p) => pathname.startsWith(p)) && session.role === "MANAGER") {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return NextResponse.next();

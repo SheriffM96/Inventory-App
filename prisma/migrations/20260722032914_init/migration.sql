@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('STOREKEEPER', 'KITCHEN_BAR', 'MANAGER');
+CREATE TYPE "Role" AS ENUM ('STOREKEEPER', 'KITCHEN', 'BAR', 'MANAGER');
 
 -- CreateEnum
 CREATE TYPE "Department" AS ENUM ('KITCHEN', 'BAR', 'OTHER');
@@ -35,7 +35,6 @@ CREATE TABLE "Purchase" (
     "id" TEXT NOT NULL,
     "itemId" TEXT NOT NULL,
     "quantity" DECIMAL(12,2) NOT NULL,
-    "unitPrice" DECIMAL(12,2),
     "totalCost" DECIMAL(12,2),
     "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "notes" TEXT,

@@ -6,7 +6,7 @@ import UsageForm from "./UsageForm";
 
 export default async function LogPage() {
   const session = await requireSession();
-  const canLogPurchase = session.role === "STOREKEEPER" || session.role === "MANAGER";
+  const canLogPurchase = session.role === "STOREKEEPER";
 
   const items = await prisma.item.findMany({
     where: { active: true },
@@ -39,7 +39,7 @@ export default async function LogPage() {
         )}
         <div className="card">
           <h2 className="text-lg font-semibold mb-3">Log Usage / Items Given Out</h2>
-          <UsageForm items={items} />
+          <UsageForm items={items} role={session.role} />
         </div>
       </div>
 

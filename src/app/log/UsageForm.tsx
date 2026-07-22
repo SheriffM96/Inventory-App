@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import ItemSelect, { ItemOption } from "@/components/ItemSelect";
+import CategoryItemPicker, { ItemOption } from "@/components/CategoryItemPicker";
+import { toDateTimeLocalValue } from "@/lib/dates";
 import { logUsageAction, LogFormState } from "./actions";
 
 function SubmitButton() {
@@ -14,23 +15,29 @@ function SubmitButton() {
   );
 }
 
-export default function UsageForm({ items }: { items: ItemOption[] }) {
+export default function UsageForm({ items, role }: { items: ItemOption[]; role: string }) {
   const initialState: LogFormState = {};
   const [state, formAction] = useFormState(logUsageAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const [resetCount, setResetCount] = useState(0);
+  const [now, setNow] = useState("");
 
   useEffect(() => {
-    if (state?.success) formRef.current?.reset();
+    setNow(toDateTimeLocalValue(new Date()));
+  }, [resetCount]);
+
+  useEffect(() => {
+    if (state?.success) {
+      formRef.current?.reset();
+      setResetCount((c) => c + 1);
+    }
   }, [state]);
+
+  const lockedDepartment = role === "KITCHEN" ? "Kitchen" : role === "BAR" ? "Bar" : null;
 
   return (
     <form ref={formRef} action={formAction} className="space-y-3">
-      <div>
-        <label className="label" htmlFor="usage-item">
-          Item
-        </label>
-        <ItemSelect id="usage-item" items={items} name="itemId" required />
-      </div>
+      <CategoryItemPicker key={resetCount} items={items} itemFieldName="itemId" idPrefix="usage" required />
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Quantity used</label>
@@ -38,12 +45,30 @@ export default function UsageForm({ items }: { items: ItemOption[] }) {
         </div>
         <div>
           <label className="label">Issued to</label>
-          <select name="department" className="input" defaultValue="KITCHEN">
-            <option value="KITCHEN">Kitchen</option>
-            <option value="BAR">Bar</option>
-            <option value="OTHER">Other</option>
-          </select>
+          {lockedDepartment ? (
+            <input className="input bg-stone-100" value={lockedDepartment} disabled readOnly />
+          ) : (
+            <select name="department" className="input" defaultValue="KITCHEN">
+              <option value="KITCHEN">Kitchen</option>
+              <option value="BAR">Bar</option>
+              <option value="OTHER">Other</option>
+            </select>
+          )}
         </div>
+      </div>
+      <div>
+        <label className="label" htmlFor="usage-occurredAt">
+          Date &amp; time used
+        </label>
+        <input
+          id="usage-occurredAt"
+          name="occurredAt"
+          type="datetime-local"
+          className="input"
+          value={now}
+          onChange={(e) => setNow(e.target.value)}
+          required
+        />
       </div>
       <div>
         <label className="label">Notes (optional)</label>

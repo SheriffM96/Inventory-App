@@ -1,5 +1,6 @@
 "use server";
 
+import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
@@ -71,4 +72,76 @@ export async function toggleItemActiveAction(formData: FormData): Promise<void> 
 
   revalidatePath("/items");
   revalidatePath("/log");
+}
+
+export async function importItemsAction(_prev: ItemFormState, formData: FormData): Promise<ItemFormState> {
+  await requireRole(["MANAGER"]);
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose an Excel (.xlsx) file to upload." };
+  }
+
+  let workbook: ExcelJS.Workbook;
+  try {
+    const buffer = await file.arrayBuffer();
+    workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+  } catch {
+    return { error: "Could not read that file. Make sure it's a valid .xlsx spreadsheet." };
+  }
+
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) {
+    return { error: "The file has no worksheets." };
+  }
+
+  const headerRow = worksheet.getRow(1);
+  const headerMap = new Map<string, number>();
+  headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+    const text = String(cell.value ?? "").trim().toLowerCase();
+    if (text) headerMap.set(text, colNumber);
+  });
+
+  const nameCol = headerMap.get("item") ?? headerMap.get("name");
+  const categoryCol = headerMap.get("category");
+  const unitCol = headerMap.get("unit");
+
+  if (!nameCol || !categoryCol || !unitCol) {
+    return { error: "The file must have columns named Item (or Name), Category, and Unit." };
+  }
+
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  for (let r = 2; r <= worksheet.rowCount; r++) {
+    const row = worksheet.getRow(r);
+    const name = String(row.getCell(nameCol).value ?? "").trim();
+    const category = String(row.getCell(categoryCol).value ?? "").trim();
+    const unit = String(row.getCell(unitCol).value ?? "").trim();
+
+    if (!name || !category || !unit) {
+      skipped++;
+      continue;
+    }
+
+    const existing = await prisma.item.findUnique({ where: { name } });
+    if (existing) {
+      await prisma.item.update({ where: { id: existing.id }, data: { category, unit } });
+      updated++;
+    } else {
+      await prisma.item.create({ data: { name, category, unit } });
+      created++;
+    }
+  }
+
+  revalidatePath("/items");
+  revalidatePath("/log");
+  revalidatePath("/dashboard");
+
+  const skippedNote = skipped > 0 ? `, skipped ${skipped} row(s) missing a value` : "";
+  return {
+    success: `Import complete: ${created} item(s) added, ${updated} updated${skippedNote}. Nothing was removed - deactivate items you no longer stock from the list below.`,
+  };
 }
