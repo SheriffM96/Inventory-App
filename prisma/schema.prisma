@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STOREKEEPER
+  KITCHEN_BAR
+  MANAGER
+}
+
+enum Department {
+  KITCHEN
+  BAR
+  OTHER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  pinHash   String
+  role      Role
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  purchases Purchase[]
+  usages    Usage[]
+}
+
+model Item {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  category      String
+  unit          String
+  openingStock  Decimal  @default(0) @db.Decimal(12, 2)
+  reorderLevel  Decimal? @db.Decimal(12, 2)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  purchases Purchase[]
+  usages    Usage[]
+}
+
+model Purchase {
+  id         String   @id @default(cuid())
+  item       Item     @relation(fields: [itemId], references: [id])
+  itemId     String
+  quantity   Decimal  @db.Decimal(12, 2)
+  unitPrice  Decimal? @db.Decimal(12, 2)
+  totalCost  Decimal? @db.Decimal(12, 2)
+  date       DateTime @default(now())
+  notes      String?
+  loggedBy   User     @relation(fields: [loggedById], references: [id])
+  loggedById String
+  createdAt  DateTime @default(now())
+
+  @@index([date])
+  @@index([itemId])
+}
+
+model Usage {
+  id         String     @id @default(cuid())
+  item       Item       @relation(fields: [itemId], references: [id])
+  itemId     String
+  quantity   Decimal    @db.Decimal(12, 2)
+  department Department @default(OTHER)
+  date       DateTime   @default(now())
+  notes      String?
+  loggedBy   User       @relation(fields: [loggedById], references: [id])
+  loggedById String
+  createdAt  DateTime   @default(now())
+
+  @@index([date])
+  @@index([itemId])
+}
+
+model NotificationLog {
+  id        String   @id @default(cuid())
+  event     String
+  message   String
+  sentOk    Boolean  @default(false)
+  error     String?
+  createdAt DateTime @default(now())
+}
