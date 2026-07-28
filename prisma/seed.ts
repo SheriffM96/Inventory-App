@@ -185,32 +185,72 @@ type SeedMenuItem = { name: string; category: string };
 
 // The sellable dishes/drinks customers order, distinct from the raw
 // ingredients above - used for the supervisor's end-of-day sales-by-item log.
-const MENU_ITEMS: SeedMenuItem[] = [
-  { name: "Chicken Shawarma Platter", category: "Food" },
-  { name: "Beef Shawarma Platter", category: "Food" },
-  { name: "Lamb Mandi", category: "Food" },
-  { name: "Chicken Mandi", category: "Food" },
-  { name: "Mixed Grill Platter", category: "Food" },
-  { name: "Kibbeh", category: "Food" },
-  { name: "Hummus", category: "Food" },
-  { name: "Falafel", category: "Food" },
-  { name: "Fattoush Salad", category: "Food" },
-  { name: "Manaish (Za'atar)", category: "Food" },
-  { name: "Tabbouleh", category: "Food" },
-  { name: "Basbousa", category: "Desserts" },
-  { name: "Oum Ali", category: "Desserts" },
-  { name: "Kunafa", category: "Desserts" },
+// Pulled directly from the printed Mishkak menu (Maitama, Abuja), grouped by
+// the menu's own section headings.
+export const MENU_ITEMS: SeedMenuItem[] = [
+  // Mezze
+  { name: "Arabic Brunch Platter", category: "Mezze" },
+  { name: "Soujouk", category: "Mezze" },
+  { name: "Kibdah", category: "Mezze" },
+  { name: "Manaish", category: "Mezze" },
+  { name: "Lahm Bajine", category: "Mezze" },
+  { name: "Hummus", category: "Mezze" },
+  { name: "Falafel", category: "Mezze" },
+  { name: "Batata Harra", category: "Mezze" },
+  { name: "Kibbeh", category: "Mezze" },
+  { name: "Arayes (Maria)", category: "Mezze" },
+  { name: "Sambuusa", category: "Mezze" },
+
+  // Signature Rice
+  { name: "Mandi", category: "Signature Rice" },
+  { name: "Kabsa", category: "Signature Rice" },
+  { name: "Ouzi Rice (Friday Special)", category: "Signature Rice" },
+  { name: "Signature Rice Plate", category: "Signature Rice" },
+
+  // Grills
+  { name: "Mishkak Signature Platter", category: "Grills" },
+  { name: "Whole Chicken Grill", category: "Grills" },
+  { name: "Fish Grill", category: "Grills" },
+
+  // Salads & Sides
+  { name: "Arabic Salad", category: "Salads & Sides" },
+  { name: "Tabbouleh", category: "Salads & Sides" },
+  { name: "Fattoush", category: "Salads & Sides" },
+  { name: "Chicken Wings", category: "Salads & Sides" },
+  { name: "Fries", category: "Salads & Sides" },
+
+  // Desserts
+  { name: "Mishkak Signature Dessert", category: "Desserts" },
   { name: "Qatayef", category: "Desserts" },
-  { name: "Karak Tea", category: "Drinks" },
-  { name: "Arabian Black Tea", category: "Drinks" },
-  { name: "Fresh Mint Lemonade", category: "Drinks" },
-  { name: "Mango Milkshake", category: "Drinks" },
-  { name: "Pistachio Milkshake", category: "Drinks" },
-  { name: "Rose Mocktail", category: "Drinks" },
-  { name: "Desert Bloom Mocktail", category: "Drinks" },
-  { name: "Bahr Al Asfar Mocktail", category: "Drinks" },
-  { name: "Tamr Al Layl Mocktail", category: "Drinks" },
-  { name: "Shams Al Ahmar Mocktail", category: "Drinks" },
+  { name: "Oum Ali", category: "Desserts" },
+  { name: "Muhallabia", category: "Desserts" },
+
+  // Teas & Coffee
+  { name: "Mint Tea", category: "Teas & Coffee" },
+  { name: "Karak Tea", category: "Teas & Coffee" },
+  { name: "Arabian Tea", category: "Teas & Coffee" },
+  { name: "Qahwa (Arabic Coffee)", category: "Teas & Coffee" },
+
+  // Milkshakes
+  { name: "Almond & Dates Milkshake", category: "Milkshakes" },
+  { name: "Pistachio Milkshake", category: "Milkshakes" },
+  { name: "Rose & Vanilla Milkshake", category: "Milkshakes" },
+  { name: "Avocado Milkshake", category: "Milkshakes" },
+
+  // Beverages
+  { name: "Still Water", category: "Beverages" },
+  { name: "Soft Drinks", category: "Beverages" },
+  { name: "Fresh Juices", category: "Beverages" },
+
+  // Mocktails
+  { name: "Desert Bloom", category: "Mocktails" },
+  { name: "Nakheel Frost", category: "Mocktails" },
+  { name: "Bahr Al Asfar", category: "Mocktails" },
+  { name: "Shams Al Ahmar", category: "Mocktails" },
+  { name: "Tamr Al Layl", category: "Mocktails" },
+  { name: "Zahr Al Layl", category: "Mocktails" },
+  { name: "Rumman Fizz", category: "Mocktails" },
+  { name: "Haras Al Aish", category: "Mocktails" },
 ];
 
 const VENDORS = ["Kano Central Market", "Sabo Meat Suppliers", "Al-Waha Wholesale Grocers", "Sahara Beverages Ltd"];
