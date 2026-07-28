@@ -28,9 +28,10 @@ model User {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  purchases Purchase[]
-  issuances Issuance[]
-  usages    Usage[]
+  purchases   Purchase[]
+  issuances   Issuance[]
+  usages      Usage[]
+  stockCounts StockCount[]
 }
 
 model Item {
@@ -43,9 +44,10 @@ model Item {
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  purchases Purchase[]
-  issuances Issuance[]
-  usages    Usage[]
+  purchases   Purchase[]
+  issuances   Issuance[]
+  usages      Usage[]
+  stockCounts StockCount[]
 }
 
 model Vendor {
@@ -112,6 +114,25 @@ model Usage {
   itemId     String
   quantity   Decimal  @db.Decimal(12, 2)
   department Team
+  date       DateTime @default(now())
+  notes      String?
+  loggedBy   User     @relation(fields: [loggedById], references: [id])
+  loggedById String
+  createdAt  DateTime @default(now())
+
+  @@index([date])
+  @@index([itemId])
+}
+
+/// A physical stock take (count) of an item at a point in time. The most
+/// recent count for an item becomes the new baseline that purchases and
+/// issuances are added to/subtracted from going forward, replacing the
+/// item's original openingStock for that purpose.
+model StockCount {
+  id         String   @id @default(cuid())
+  item       Item     @relation(fields: [itemId], references: [id])
+  itemId     String
+  quantity   Decimal  @db.Decimal(12, 2)
   date       DateTime @default(now())
   notes      String?
   loggedBy   User     @relation(fields: [loggedById], references: [id])

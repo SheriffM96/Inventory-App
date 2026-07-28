@@ -24,6 +24,11 @@ export default function NavBar({ session }: { session: SessionPayload | null }) 
               Log Activity
             </Link>
           )}
+          {session.role === "STOREKEEPER" && (
+            <Link href="/stock-take" className="hover:text-brand-700">
+              Stock Take
+            </Link>
+          )}
           {isManager && (
             <>
               <Link href="/dashboard" className="hover:text-brand-700">
@@ -37,6 +42,9 @@ export default function NavBar({ session }: { session: SessionPayload | null }) 
               </Link>
               <Link href="/items" className="hover:text-brand-700">
                 Items &amp; Vendors
+              </Link>
+              <Link href="/stock-take" className="hover:text-brand-700">
+                Stock Take
               </Link>
               <Link href="/users" className="hover:text-brand-700">
                 Staff

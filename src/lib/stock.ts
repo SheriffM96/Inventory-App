@@ -11,11 +11,16 @@ export type StockLevel = {
   remaining: number;
   reorderLevel: number | null;
   lowStock: boolean;
+  lastCountDate: Date | null;
 };
 
 /**
  * Central (storekeeper) stock on hand per item, computed as:
- *   opening stock + all-time purchases - all-time issuances
+ *   baseline + purchases since baseline - issuances since baseline
+ * The baseline is the item's most recent physical stock count (StockCount),
+ * or - if it has never been counted - its original openingStock. This lets a
+ * stock take reset the running balance to what's physically on the shelf
+ * without losing history of purchases/issuances logged before the count.
  * Issuance (not Usage) is what leaves the central store - Usage is what
  * kitchen/bar staff do with stock after it's already been issued to them.
  * Pass `asOf` to compute the balance as of the end of a given date instead of "now".
@@ -23,40 +28,56 @@ export type StockLevel = {
 export async function computeStockLevels(asOf?: Date): Promise<StockLevel[]> {
   const dateFilter = asOf ? { lte: asOf } : undefined;
 
-  const [items, purchaseSums, issuanceSums] = await Promise.all([
+  const [items, purchases, issuances, stockCounts] = await Promise.all([
     prisma.item.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] }),
-    prisma.purchase.groupBy({
-      by: ["itemId"],
-      _sum: { quantity: true },
+    prisma.purchase.findMany({
       where: dateFilter ? { date: dateFilter } : undefined,
+      select: { itemId: true, quantity: true, date: true },
     }),
-    prisma.issuance.groupBy({
-      by: ["itemId"],
-      _sum: { quantity: true },
+    prisma.issuance.findMany({
       where: dateFilter ? { date: dateFilter } : undefined,
+      select: { itemId: true, quantity: true, date: true },
+    }),
+    prisma.stockCount.findMany({
+      where: dateFilter ? { date: dateFilter } : undefined,
+      orderBy: { date: "desc" },
+      select: { itemId: true, quantity: true, date: true },
     }),
   ]);
 
-  const purchasedMap = new Map(purchaseSums.map((p) => [p.itemId, Number(p._sum.quantity ?? 0)]));
-  const issuedMap = new Map(issuanceSums.map((i) => [i.itemId, Number(i._sum.quantity ?? 0)]));
+  const latestCountByItem = new Map<string, { quantity: number; date: Date }>();
+  for (const count of stockCounts) {
+    if (!latestCountByItem.has(count.itemId)) {
+      latestCountByItem.set(count.itemId, { quantity: Number(count.quantity), date: count.date });
+    }
+  }
 
   return items.map((item) => {
-    const totalPurchased = purchasedMap.get(item.id) ?? 0;
-    const totalIssued = issuedMap.get(item.id) ?? 0;
-    const opening = Number(item.openingStock);
-    const remaining = opening + totalPurchased - totalIssued;
+    const latestCount = latestCountByItem.get(item.id);
+    const baseline = latestCount ? latestCount.quantity : Number(item.openingStock);
+    const baselineDate = latestCount?.date ?? null;
+
+    const totalPurchased = purchases
+      .filter((p) => p.itemId === item.id && (!baselineDate || p.date > baselineDate))
+      .reduce((sum, p) => sum + Number(p.quantity), 0);
+    const totalIssued = issuances
+      .filter((i) => i.itemId === item.id && (!baselineDate || i.date > baselineDate))
+      .reduce((sum, i) => sum + Number(i.quantity), 0);
+
+    const remaining = baseline + totalPurchased - totalIssued;
     const reorderLevel = item.reorderLevel !== null ? Number(item.reorderLevel) : null;
     return {
       itemId: item.id,
       name: item.name,
       category: item.category,
       unit: item.unit,
-      openingStock: opening,
+      openingStock: baseline,
       totalPurchased,
       totalIssued,
       remaining,
       reorderLevel,
       lowStock: reorderLevel !== null && remaining <= reorderLevel,
+      lastCountDate: baselineDate,
     };
   });
 }
