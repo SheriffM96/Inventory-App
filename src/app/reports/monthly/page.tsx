@@ -14,11 +14,15 @@ export default async function MonthlyReportPage({
   const { start, end } = monthRange(year, month);
   const monthValue = toMonthInputValue(start);
 
-  const [purchases, issuances, usage, remainingAsOfMonthEnd] = await Promise.all([
+  const [purchases, issuances, usage, remainingAsOfMonthEnd, reconciliations] = await Promise.all([
     prisma.purchase.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     prisma.issuance.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     prisma.usage.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     computeStockLevels(end),
+    prisma.dailyReconciliation.findMany({
+      where: { date: { gte: start, lte: end } },
+      include: { saleLines: { include: { menuItem: true } } },
+    }),
   ]);
 
   type Row = {
@@ -68,6 +72,29 @@ export default async function MonthlyReportPage({
 
   const sortedRows = Array.from(rows.values()).sort((a, b) => a.name.localeCompare(b.name));
   const totalSpent = sortedRows.reduce((sum, r) => sum + r.amountSpent, 0);
+
+  const monthCashTotal = reconciliations.reduce((sum, r) => sum + Number(r.cashTotal), 0);
+  const monthTransferTotal = reconciliations.reduce((sum, r) => sum + Number(r.transferTotal), 0);
+  const monthPosTotal = reconciliations.reduce((sum, r) => sum + Number(r.posTotal), 0);
+  const monthSalesTotal = monthCashTotal + monthTransferTotal + monthPosTotal;
+
+  type SoldRow = { name: string; category: string; qty: number };
+  const soldByMenuItem = new Map<string, SoldRow>();
+  for (const r of reconciliations) {
+    for (const line of r.saleLines) {
+      const existing = soldByMenuItem.get(line.menuItemId);
+      if (existing) {
+        existing.qty += Number(line.quantitySold);
+      } else {
+        soldByMenuItem.set(line.menuItemId, {
+          name: line.menuItem.name,
+          category: line.menuItem.category,
+          qty: Number(line.quantitySold),
+        });
+      }
+    }
+  }
+  const sortedSoldRows = Array.from(soldByMenuItem.values()).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="space-y-6">
@@ -128,6 +155,50 @@ export default async function MonthlyReportPage({
             </div>
             <p className="text-sm font-medium mt-3">Total spent this month: {formatMoney(totalSpent)}</p>
           </>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Sales Reconciliation Summary - {monthValue}</h2>
+        {reconciliations.length === 0 ? (
+          <p className="text-sm text-stone-500">No reconciliations submitted this month.</p>
+        ) : (
+          <div className="text-sm space-y-1">
+            <p>Days submitted: {reconciliations.length}</p>
+            <p>
+              Cash: {formatMoney(monthCashTotal)} - Transfer: {formatMoney(monthTransferTotal)} - POS:{" "}
+              {formatMoney(monthPosTotal)}
+            </p>
+            <p className="font-medium">Total Sales this month: {formatMoney(monthSalesTotal)}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Sales by Item - {monthValue}</h2>
+        {sortedSoldRows.length === 0 ? (
+          <p className="text-sm text-stone-500">No sales logged this month.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table-base">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th>Quantity Sold</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedSoldRows.map((r) => (
+                  <tr key={r.name}>
+                    <td>{r.name}</td>
+                    <td className="text-stone-500">{r.category}</td>
+                    <td>{r.qty}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

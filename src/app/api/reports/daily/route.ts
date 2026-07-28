@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const range = { gte: startOfDay(date), lte: endOfDay(date) };
   const dateValue = toDateInputValue(date);
 
-  const [purchases, issuances, usage] = await Promise.all([
+  const [purchases, issuances, usage, reconciliation] = await Promise.all([
     prisma.purchase.findMany({ where: { date: range }, include: { item: true, vendor: true }, orderBy: { date: "asc" } }),
     prisma.issuance.findMany({
       where: { date: range },
@@ -31,6 +31,10 @@ export async function GET(req: NextRequest) {
       orderBy: { date: "asc" },
     }),
     prisma.usage.findMany({ where: { date: range }, include: { item: true } }),
+    prisma.dailyReconciliation.findUnique({
+      where: { date: startOfDay(date) },
+      include: { submittedBy: true, saleLines: { include: { menuItem: true } } },
+    }),
   ]);
 
   const usedByItem = new Map<string, { name: string; unit: string; qty: number }>();
@@ -74,6 +78,32 @@ export async function GET(req: NextRequest) {
   }
   for (const e of usedByItem.values()) {
     lines.push(["Used", csvEscape(e.name), e.qty, e.unit, "", "", "", ""].join(","));
+  }
+
+  lines.push("");
+  lines.push("Sales Reconciliation");
+  if (reconciliation) {
+    const total =
+      Number(reconciliation.cashTotal) + Number(reconciliation.transferTotal) + Number(reconciliation.posTotal);
+    lines.push("Submitted By,Cash,Transfer,POS,Total Sales,Status,Notes");
+    lines.push(
+      [
+        csvEscape(reconciliation.submittedBy.name),
+        Number(reconciliation.cashTotal).toFixed(2),
+        Number(reconciliation.transferTotal).toFixed(2),
+        Number(reconciliation.posTotal).toFixed(2),
+        total.toFixed(2),
+        reconciliation.status,
+        csvEscape(reconciliation.notes ?? ""),
+      ].join(",")
+    );
+    lines.push("");
+    lines.push("Sales by Item,Category,Quantity Sold");
+    for (const line of reconciliation.saleLines) {
+      lines.push([csvEscape(line.menuItem.name), csvEscape(line.menuItem.category), line.quantitySold.toString()].join(","));
+    }
+  } else {
+    lines.push("No reconciliation submitted for this date.");
   }
 
   const csv = lines.join("\n");

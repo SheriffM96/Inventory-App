@@ -20,11 +20,15 @@ export async function GET(req: NextRequest) {
   const { start, end } = monthRange(year, month);
   const monthValue = toMonthInputValue(start);
 
-  const [purchases, issuances, usage, remainingAsOfMonthEnd] = await Promise.all([
+  const [purchases, issuances, usage, remainingAsOfMonthEnd, reconciliations] = await Promise.all([
     prisma.purchase.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     prisma.issuance.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     prisma.usage.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     computeStockLevels(end),
+    prisma.dailyReconciliation.findMany({
+      where: { date: { gte: start, lte: end } },
+      include: { saleLines: { include: { menuItem: true } } },
+    }),
   ]);
 
   type Row = {
@@ -88,6 +92,46 @@ export async function GET(req: NextRequest) {
         r.unit,
       ].join(",")
     );
+  }
+
+  const monthCashTotal = reconciliations.reduce((sum, r) => sum + Number(r.cashTotal), 0);
+  const monthTransferTotal = reconciliations.reduce((sum, r) => sum + Number(r.transferTotal), 0);
+  const monthPosTotal = reconciliations.reduce((sum, r) => sum + Number(r.posTotal), 0);
+  const monthSalesTotal = monthCashTotal + monthTransferTotal + monthPosTotal;
+
+  const soldByMenuItem = new Map<string, { name: string; category: string; qty: number }>();
+  for (const r of reconciliations) {
+    for (const line of r.saleLines) {
+      const existing = soldByMenuItem.get(line.menuItemId);
+      if (existing) {
+        existing.qty += Number(line.quantitySold);
+      } else {
+        soldByMenuItem.set(line.menuItemId, {
+          name: line.menuItem.name,
+          category: line.menuItem.category,
+          qty: Number(line.quantitySold),
+        });
+      }
+    }
+  }
+  const sortedSoldRows = Array.from(soldByMenuItem.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  lines.push("");
+  lines.push("Sales Reconciliation Summary");
+  lines.push("Days Submitted,Cash,Transfer,POS,Total Sales");
+  lines.push(
+    [
+      reconciliations.length,
+      monthCashTotal.toFixed(2),
+      monthTransferTotal.toFixed(2),
+      monthPosTotal.toFixed(2),
+      monthSalesTotal.toFixed(2),
+    ].join(",")
+  );
+  lines.push("");
+  lines.push("Sales by Item,Category,Quantity Sold");
+  for (const r of sortedSoldRows) {
+    lines.push([csvEscape(r.name), csvEscape(r.category), r.qty].join(","));
   }
 
   const csv = lines.join("\n");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { submitReconciliationAction, ReconciliationFormState } from "./actions";
 
@@ -29,13 +29,17 @@ const STATUS_STYLES: Record<string, string> = {
   DISPUTED: "bg-red-50 border-red-300 text-red-800",
 };
 
-function SubmitButton() {
+function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={pending} className="btn-primary">
-      {pending ? "Saving..." : "Save Reconciliation"}
+      {pending ? "Saving..." : label}
     </button>
   );
+}
+
+function formatAmount(value: number): string {
+  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function ReconciliationForm({
@@ -47,6 +51,11 @@ export default function ReconciliationForm({
 }) {
   const initialState: ReconciliationFormState = {};
   const [state, formAction] = useFormState(submitReconciliationAction, initialState);
+
+  const [cashTotal, setCashTotal] = useState(existing ? String(Number(existing.cashTotal)) : "");
+  const [transferTotal, setTransferTotal] = useState(existing ? String(Number(existing.transferTotal)) : "");
+  const [posTotal, setPosTotal] = useState(existing ? String(Number(existing.posTotal)) : "");
+  const totalSales = (Number(cashTotal) || 0) + (Number(transferTotal) || 0) + (Number(posTotal) || 0);
 
   const byCategory = useMemo(() => {
     const map = new Map<string, MenuItemOption[]>();
@@ -66,11 +75,11 @@ export default function ReconciliationForm({
     return map;
   }, [existing]);
 
-  if (existing && existing.status !== "PENDING") {
+  if (existing && existing.status === "CONFIRMED") {
     return (
       <div className="space-y-4">
-        <div className={`border rounded-md px-3 py-2 text-sm ${STATUS_STYLES[existing.status]}`}>
-          {STATUS_LABELS[existing.status]}
+        <div className={`border rounded-md px-3 py-2 text-sm ${STATUS_STYLES.CONFIRMED}`}>
+          {STATUS_LABELS.CONFIRMED}
           {existing.managerNotes && (
             <>
               <br />
@@ -82,10 +91,11 @@ export default function ReconciliationForm({
           <p>Cash: {Number(existing.cashTotal).toFixed(2)}</p>
           <p>Transfer: {Number(existing.transferTotal).toFixed(2)}</p>
           <p>POS: {Number(existing.posTotal).toFixed(2)}</p>
+          <p className="font-medium">Total Sales: {formatAmount(totalSales)}</p>
           {existing.notes && <p className="text-stone-500">Notes: {existing.notes}</p>}
         </div>
         <p className="text-sm text-stone-500">
-          Today&apos;s reconciliation has already been reviewed and can no longer be edited.
+          Today&apos;s reconciliation has been confirmed and can no longer be edited.
         </p>
       </div>
     );
@@ -98,6 +108,19 @@ export default function ReconciliationForm({
           {STATUS_LABELS.PENDING} - you can still edit and resave until the manager acts on it.
         </div>
       )}
+      {existing?.status === "DISPUTED" && (
+        <div className={`border rounded-md px-3 py-2 text-sm ${STATUS_STYLES.DISPUTED}`}>
+          {STATUS_LABELS.DISPUTED}
+          {existing.managerNotes && (
+            <>
+              <br />
+              <span className="font-medium">Reason:</span> {existing.managerNotes}
+            </>
+          )}
+          <br />
+          Fix the details below and resave - it will go back to the manager for review.
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="label">Cash</label>
@@ -107,7 +130,8 @@ export default function ReconciliationForm({
             inputMode="decimal"
             step="0.01"
             min="0"
-            defaultValue={existing ? Number(existing.cashTotal) : undefined}
+            value={cashTotal}
+            onChange={(e) => setCashTotal(e.target.value)}
             className="input"
             required
           />
@@ -120,7 +144,8 @@ export default function ReconciliationForm({
             inputMode="decimal"
             step="0.01"
             min="0"
-            defaultValue={existing ? Number(existing.transferTotal) : undefined}
+            value={transferTotal}
+            onChange={(e) => setTransferTotal(e.target.value)}
             className="input"
             required
           />
@@ -133,12 +158,14 @@ export default function ReconciliationForm({
             inputMode="decimal"
             step="0.01"
             min="0"
-            defaultValue={existing ? Number(existing.posTotal) : undefined}
+            value={posTotal}
+            onChange={(e) => setPosTotal(e.target.value)}
             className="input"
             required
           />
         </div>
       </div>
+      <p className="text-sm font-medium">Total Sales: {formatAmount(totalSales)}</p>
 
       <div>
         <h3 className="text-sm font-semibold text-stone-700 mb-2">Sales by Item</h3>
@@ -189,7 +216,7 @@ export default function ReconciliationForm({
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state?.success && <p className="text-sm text-green-700">{state.success}</p>}
-      <SubmitButton />
+      <SubmitButton label={existing?.status === "DISPUTED" ? "Resubmit Reconciliation" : "Save Reconciliation"} />
     </form>
   );
 }

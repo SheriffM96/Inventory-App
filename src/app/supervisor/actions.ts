@@ -46,13 +46,15 @@ export async function submitReconciliationAction(
   const today = startOfDay(new Date());
   const existing = await prisma.dailyReconciliation.findUnique({ where: { date: today } });
 
-  if (existing && existing.status !== "PENDING") {
+  if (existing && existing.status === "CONFIRMED") {
     return {
-      error: "Today's reconciliation has already been reviewed by the manager and can no longer be edited.",
+      error: "Today's reconciliation has already been confirmed by the manager and can no longer be edited.",
     };
   }
 
   if (existing) {
+    // A disputed reconciliation goes back to PENDING on resubmit - it's a
+    // fresh review cycle, so the manager's prior verdict no longer applies.
     await prisma.$transaction([
       prisma.saleLine.deleteMany({ where: { reconciliationId: existing.id } }),
       prisma.dailyReconciliation.update({
@@ -62,6 +64,10 @@ export async function submitReconciliationAction(
           transferTotal,
           posTotal,
           notes,
+          status: "PENDING",
+          managerNotes: null,
+          reviewedById: null,
+          reviewedAt: null,
           submittedById: session.userId,
           saleLines: { createMany: { data: saleLines } },
         },

@@ -6,6 +6,12 @@ function formatTime(date: Date): string {
   return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+const RECONCILIATION_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending manager review",
+  CONFIRMED: "Confirmed",
+  DISPUTED: "Disputed",
+};
+
 export default async function DailyReportPage({
   searchParams,
 }: {
@@ -16,7 +22,7 @@ export default async function DailyReportPage({
   const date = parseDateParam(searchParams.date);
   const range = { gte: startOfDay(date), lte: endOfDay(date) };
 
-  const [purchases, issuances, usage] = await Promise.all([
+  const [purchases, issuances, usage, reconciliation] = await Promise.all([
     prisma.purchase.findMany({
       where: { date: range },
       include: { item: true, vendor: true },
@@ -28,6 +34,10 @@ export default async function DailyReportPage({
       orderBy: { date: "asc" },
     }),
     prisma.usage.findMany({ where: { date: range }, include: { item: true } }),
+    prisma.dailyReconciliation.findUnique({
+      where: { date: startOfDay(date) },
+      include: { submittedBy: true, saleLines: { include: { menuItem: true } } },
+    }),
   ]);
 
   const usedByItem = new Map<string, { name: string; unit: string; qty: number }>();
@@ -145,6 +155,59 @@ export default async function DailyReportPage({
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Sales Reconciliation - {dateValue}</h2>
+        {!reconciliation ? (
+          <p className="text-sm text-stone-500">No reconciliation submitted for this date.</p>
+        ) : (
+          <div className="text-sm space-y-1">
+            <p>Submitted by {reconciliation.submittedBy.name}</p>
+            <p>
+              Cash: {formatMoney(Number(reconciliation.cashTotal))} - Transfer:{" "}
+              {formatMoney(Number(reconciliation.transferTotal))} - POS: {formatMoney(Number(reconciliation.posTotal))}
+            </p>
+            <p className="font-medium">
+              Total Sales:{" "}
+              {formatMoney(
+                Number(reconciliation.cashTotal) +
+                  Number(reconciliation.transferTotal) +
+                  Number(reconciliation.posTotal)
+              )}
+            </p>
+            <p>Status: {RECONCILIATION_STATUS_LABELS[reconciliation.status]}</p>
+            {reconciliation.notes && <p className="text-stone-500">Notes: {reconciliation.notes}</p>}
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Sales by Item - {dateValue}</h2>
+        {!reconciliation || reconciliation.saleLines.length === 0 ? (
+          <p className="text-sm text-stone-500">No sales logged for this date.</p>
+        ) : (
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Quantity Sold</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...reconciliation.saleLines]
+                .sort((a, b) => a.menuItem.name.localeCompare(b.menuItem.name))
+                .map((line) => (
+                  <tr key={line.menuItemId}>
+                    <td>{line.menuItem.name}</td>
+                    <td className="text-stone-500">{line.menuItem.category}</td>
+                    <td>{line.quantitySold.toString()}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         )}

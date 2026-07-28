@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
 import { computeStockLevels } from "@/lib/stock";
 import { startOfDay } from "@/lib/dates";
+import ScrollableTable from "@/components/ScrollableTable";
 import ReconciliationForm from "./ReconciliationForm";
 
 export default async function SupervisorPage() {
@@ -26,15 +27,20 @@ export default async function SupervisorPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Supervisor</h1>
 
+      <div className="card max-w-3xl">
+        <h2 className="text-lg font-semibold mb-3">End of Day Reconciliation</h2>
+        <ReconciliationForm menuItems={menuItems} existing={todaysReconciliation} />
+      </div>
+
       <div className="card">
         <h2 className="text-lg font-semibold mb-3">Current Stock Levels</h2>
-        <div className="overflow-x-auto">
+        <ScrollableTable>
           <table className="table-base">
             <thead>
               <tr>
-                <th>Category</th>
-                <th>Item</th>
-                <th>On Hand</th>
+                <th className="sticky top-0 bg-white z-10">Category</th>
+                <th className="sticky top-0 bg-white z-10">Item</th>
+                <th className="sticky top-0 bg-white z-10">On Hand</th>
               </tr>
             </thead>
             <tbody>
@@ -49,12 +55,7 @@ export default async function SupervisorPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <div className="card max-w-3xl">
-        <h2 className="text-lg font-semibold mb-3">End of Day Reconciliation</h2>
-        <ReconciliationForm menuItems={menuItems} existing={todaysReconciliation} />
+        </ScrollableTable>
       </div>
     </div>
   );

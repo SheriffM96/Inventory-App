@@ -2,10 +2,15 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
 import { computeStockLevels } from "@/lib/stock";
-import { formatMoney } from "@/lib/dates";
+import { formatMoney, startOfDay } from "@/lib/dates";
 import ConfirmDeleteForm from "@/components/ConfirmDeleteForm";
+import ScrollableTable from "@/components/ScrollableTable";
 import { deletePurchaseAction, deleteIssuanceAction, deleteUsageAction } from "@/app/log/actions";
 import { confirmReconciliationAction, disputeReconciliationAction } from "./reconciliation-actions";
+
+function reconciliationTotal(r: { cashTotal: unknown; transferTotal: unknown; posTotal: unknown }): number {
+  return Number(r.cashTotal) + Number(r.transferTotal) + Number(r.posTotal);
+}
 
 const RECONCILIATION_STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-amber-50 border-amber-300 text-amber-800",
@@ -66,6 +71,8 @@ export default async function DashboardPage({
     ? stockLevels.filter((s) => s.category === selectedCategory)
     : stockLevels;
   const totalPurchaseAmount = Number(purchaseTotal._sum.totalCost ?? 0);
+  const today = startOfDay(new Date());
+  const todaysReconciliation = reconciliations.find((r) => startOfDay(r.date).getTime() === today.getTime());
 
   return (
     <div className="space-y-6">
@@ -103,9 +110,7 @@ export default async function DashboardPage({
         <h2 className="text-lg font-semibold mb-3">End of Day Reconciliations</h2>
         <div className="space-y-3">
           {reconciliations.map((r) => {
-            const saleSummary = r.saleLines
-              .map((line) => `${line.menuItem.name}: ${line.quantitySold.toString()}`)
-              .join(", ");
+            const sortedSaleLines = [...r.saleLines].sort((a, b) => a.menuItem.name.localeCompare(b.menuItem.name));
             return (
               <div key={r.id} className={`border rounded-md p-3 ${RECONCILIATION_STATUS_STYLES[r.status]}`}>
                 <div className="flex flex-wrap justify-between gap-2 text-sm">
@@ -122,8 +127,20 @@ export default async function DashboardPage({
                       Cash: {formatMoney(Number(r.cashTotal))} - Transfer: {formatMoney(Number(r.transferTotal))} -
                       POS: {formatMoney(Number(r.posTotal))}
                     </p>
+                    <p className="font-medium">Total Sales: {formatMoney(reconciliationTotal(r))}</p>
                     {r.notes && <p className="text-stone-600">Note: {r.notes}</p>}
-                    {saleSummary && <p className="text-stone-600">Sold: {saleSummary}</p>}
+                    {sortedSaleLines.length > 0 && (
+                      <div className="text-stone-600 mt-1">
+                        <span className="font-medium">Sold (per menu):</span>
+                        <ul className="list-disc pl-5">
+                          {sortedSaleLines.map((line) => (
+                            <li key={line.menuItemId}>
+                              {line.menuItem.name}: {line.quantitySold.toString()}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                     {r.status !== "PENDING" && (
                       <p className="text-stone-600">
                         {r.status === "CONFIRMED" ? "Confirmed" : "Disputed"} by {r.reviewedBy?.name} on{" "}
@@ -186,15 +203,15 @@ export default async function DashboardPage({
             </button>
           </form>
         </div>
-        <div className="overflow-x-auto">
+        <ScrollableTable>
           <table className="table-base">
             <thead>
               <tr>
-                <th>Category</th>
-                <th>Item</th>
-                <th>Purchased</th>
-                <th>Issued</th>
-                <th>On Hand</th>
+                <th className="sticky top-0 bg-white z-10">Category</th>
+                <th className="sticky top-0 bg-white z-10">Item</th>
+                <th className="sticky top-0 bg-white z-10">Purchased</th>
+                <th className="sticky top-0 bg-white z-10">Issued</th>
+                <th className="sticky top-0 bg-white z-10">On Hand</th>
               </tr>
             </thead>
             <tbody>
@@ -215,7 +232,7 @@ export default async function DashboardPage({
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollableTable>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -299,6 +316,32 @@ export default async function DashboardPage({
           ))}
           {recentUsage.length === 0 && <p className="text-stone-500">No usage logged yet.</p>}
         </ul>
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Today&apos;s Sales by Item</h2>
+        {!todaysReconciliation || todaysReconciliation.saleLines.length === 0 ? (
+          <p className="text-sm text-stone-500">No sales logged yet today.</p>
+        ) : (
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity Sold</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...todaysReconciliation.saleLines]
+                .sort((a, b) => a.menuItem.name.localeCompare(b.menuItem.name))
+                .map((line) => (
+                  <tr key={line.menuItemId}>
+                    <td>{line.menuItem.name}</td>
+                    <td>{line.quantitySold.toString()}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
