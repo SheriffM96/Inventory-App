@@ -3,14 +3,14 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { clearSessionCookie, setSessionCookie } from "@/lib/session";
+import { clearSessionCookie, ROLE_HOME, setSessionCookie } from "@/lib/session";
 
 export type LoginState = { error?: string };
 
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
   const userId = String(formData.get("userId") || "");
   const pin = String(formData.get("pin") || "");
-  const next = String(formData.get("next") || "/log");
+  const next = String(formData.get("next") || "");
 
   if (!userId || !pin) {
     return { error: "Select your name and enter your PIN." };
@@ -27,7 +27,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   }
 
   await setSessionCookie({ userId: user.id, name: user.name, role: user.role });
-  redirect(next && next.startsWith("/") ? next : "/log");
+  redirect(next && next.startsWith("/") ? next : ROLE_HOME[user.role]);
 }
 
 export async function logoutAction() {

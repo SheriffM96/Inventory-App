@@ -181,6 +181,38 @@ const ITEMS: SeedItem[] = [
   { name: "Bin liners (heavy duty)", category: "Cleaning & Hygiene", unit: "pack" },
 ];
 
+type SeedMenuItem = { name: string; category: string };
+
+// The sellable dishes/drinks customers order, distinct from the raw
+// ingredients above - used for the supervisor's end-of-day sales-by-item log.
+const MENU_ITEMS: SeedMenuItem[] = [
+  { name: "Chicken Shawarma Platter", category: "Food" },
+  { name: "Beef Shawarma Platter", category: "Food" },
+  { name: "Lamb Mandi", category: "Food" },
+  { name: "Chicken Mandi", category: "Food" },
+  { name: "Mixed Grill Platter", category: "Food" },
+  { name: "Kibbeh", category: "Food" },
+  { name: "Hummus", category: "Food" },
+  { name: "Falafel", category: "Food" },
+  { name: "Fattoush Salad", category: "Food" },
+  { name: "Manaish (Za'atar)", category: "Food" },
+  { name: "Tabbouleh", category: "Food" },
+  { name: "Basbousa", category: "Desserts" },
+  { name: "Oum Ali", category: "Desserts" },
+  { name: "Kunafa", category: "Desserts" },
+  { name: "Qatayef", category: "Desserts" },
+  { name: "Karak Tea", category: "Drinks" },
+  { name: "Arabian Black Tea", category: "Drinks" },
+  { name: "Fresh Mint Lemonade", category: "Drinks" },
+  { name: "Mango Milkshake", category: "Drinks" },
+  { name: "Pistachio Milkshake", category: "Drinks" },
+  { name: "Rose Mocktail", category: "Drinks" },
+  { name: "Desert Bloom Mocktail", category: "Drinks" },
+  { name: "Bahr Al Asfar Mocktail", category: "Drinks" },
+  { name: "Tamr Al Layl Mocktail", category: "Drinks" },
+  { name: "Shams Al Ahmar Mocktail", category: "Drinks" },
+];
+
 const VENDORS = ["Kano Central Market", "Sabo Meat Suppliers", "Al-Waha Wholesale Grocers", "Sahara Beverages Ltd"];
 
 const RECIPIENTS: { name: string; team: Team }[] = [
@@ -213,11 +245,21 @@ async function main() {
     }
   }
 
+  console.log(`Seeding ${MENU_ITEMS.length} menu items...`);
+  for (const menuItem of MENU_ITEMS) {
+    await prisma.menuItem.upsert({
+      where: { name: menuItem.name },
+      update: { category: menuItem.category },
+      create: { name: menuItem.name, category: menuItem.category },
+    });
+  }
+
   const demoUsers: { name: string; pin: string; role: Role }[] = [
     { name: "Storekeeper", pin: "1111", role: "STOREKEEPER" },
     { name: "Kitchen Staff", pin: "2222", role: "KITCHEN" },
     { name: "Bar Staff", pin: "3333", role: "BAR" },
     { name: "Manager", pin: "9999", role: "MANAGER" },
+    { name: "Supervisor", pin: "4444", role: "SUPERVISOR" },
   ];
 
   console.log("Seeding demo users (change PINs after first login)...");
@@ -232,7 +274,7 @@ async function main() {
   }
 
   console.log(
-    "Done. Demo PINs -> Storekeeper: 1111, Kitchen Staff: 2222, Bar Staff: 3333, Manager: 9999"
+    "Done. Demo PINs -> Storekeeper: 1111, Kitchen Staff: 2222, Bar Staff: 3333, Manager: 9999, Supervisor: 4444"
   );
 }
 

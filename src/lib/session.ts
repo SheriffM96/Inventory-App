@@ -4,12 +4,20 @@ import { cookies } from "next/headers";
 export const SESSION_COOKIE = "mishkak_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
-export type Role = "STOREKEEPER" | "KITCHEN" | "BAR" | "MANAGER";
+export type Role = "STOREKEEPER" | "KITCHEN" | "BAR" | "MANAGER" | "SUPERVISOR";
 
 export type SessionPayload = {
   userId: string;
   name: string;
   role: Role;
+};
+
+export const ROLE_HOME: Record<Role, string> = {
+  MANAGER: "/dashboard",
+  STOREKEEPER: "/log",
+  KITCHEN: "/log",
+  BAR: "/log",
+  SUPERVISOR: "/supervisor",
 };
 
 function getSecretKey() {

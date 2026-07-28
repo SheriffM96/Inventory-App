@@ -5,6 +5,13 @@ import { computeStockLevels } from "@/lib/stock";
 import { formatMoney } from "@/lib/dates";
 import ConfirmDeleteForm from "@/components/ConfirmDeleteForm";
 import { deletePurchaseAction, deleteIssuanceAction, deleteUsageAction } from "@/app/log/actions";
+import { confirmReconciliationAction, disputeReconciliationAction } from "./reconciliation-actions";
+
+const RECONCILIATION_STATUS_STYLES: Record<string, string> = {
+  PENDING: "bg-amber-50 border-amber-300 text-amber-800",
+  CONFIRMED: "bg-green-50 border-green-300 text-green-800",
+  DISPUTED: "bg-red-50 border-red-300 text-red-800",
+};
 
 function formatDateTime(date: Date): string {
   return new Date(date).toLocaleString([], {
@@ -22,25 +29,35 @@ export default async function DashboardPage({
 }) {
   await requireRole(["MANAGER"]);
 
-  const [stockLevels, recentPurchases, recentIssuances, recentUsage, purchaseTotal] = await Promise.all([
-    computeStockLevels(),
-    prisma.purchase.findMany({
-      include: { item: true, vendor: true, loggedBy: true },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
-    prisma.issuance.findMany({
-      include: { item: true, recipient: true, loggedBy: true },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
-    prisma.usage.findMany({
-      include: { item: true, loggedBy: true },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
-    prisma.purchase.aggregate({ _sum: { totalCost: true } }),
-  ]);
+  const [stockLevels, recentPurchases, recentIssuances, recentUsage, purchaseTotal, reconciliations] =
+    await Promise.all([
+      computeStockLevels(),
+      prisma.purchase.findMany({
+        include: { item: true, vendor: true, loggedBy: true },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      }),
+      prisma.issuance.findMany({
+        include: { item: true, recipient: true, loggedBy: true },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      }),
+      prisma.usage.findMany({
+        include: { item: true, loggedBy: true },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      }),
+      prisma.purchase.aggregate({ _sum: { totalCost: true } }),
+      prisma.dailyReconciliation.findMany({
+        include: {
+          submittedBy: true,
+          reviewedBy: true,
+          saleLines: { include: { menuItem: true } },
+        },
+        orderBy: { date: "desc" },
+        take: 14,
+      }),
+    ]);
 
   const lowStockItems = stockLevels.filter((s) => s.lowStock);
   const categories = Array.from(new Set(stockLevels.map((s) => s.category))).sort();
@@ -81,6 +98,76 @@ export default async function DashboardPage({
           </ul>
         </div>
       )}
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">End of Day Reconciliations</h2>
+        <div className="space-y-3">
+          {reconciliations.map((r) => {
+            const saleSummary = r.saleLines
+              .map((line) => `${line.menuItem.name}: ${line.quantitySold.toString()}`)
+              .join(", ");
+            return (
+              <div key={r.id} className={`border rounded-md p-3 ${RECONCILIATION_STATUS_STYLES[r.status]}`}>
+                <div className="flex flex-wrap justify-between gap-2 text-sm">
+                  <div>
+                    <p className="font-medium">
+                      {new Date(r.date).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        day: "2-digit",
+                        month: "short",
+                      })}{" "}
+                      - submitted by {r.submittedBy.name}
+                    </p>
+                    <p>
+                      Cash: {formatMoney(Number(r.cashTotal))} - Transfer: {formatMoney(Number(r.transferTotal))} -
+                      POS: {formatMoney(Number(r.posTotal))}
+                    </p>
+                    {r.notes && <p className="text-stone-600">Note: {r.notes}</p>}
+                    {saleSummary && <p className="text-stone-600">Sold: {saleSummary}</p>}
+                    {r.status !== "PENDING" && (
+                      <p className="text-stone-600">
+                        {r.status === "CONFIRMED" ? "Confirmed" : "Disputed"} by {r.reviewedBy?.name} on{" "}
+                        {r.reviewedAt ? formatDateTime(r.reviewedAt) : ""}
+                        {r.managerNotes && <> - {r.managerNotes}</>}
+                      </p>
+                    )}
+                  </div>
+                  {r.status === "PENDING" && (
+                    <form action={confirmReconciliationAction} className="flex flex-col gap-2 items-end">
+                      <input type="hidden" name="id" value={r.id} />
+                      <input
+                        name="managerNotes"
+                        type="text"
+                        placeholder="Note (optional)"
+                        className="input text-xs py-1"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="submit"
+                          formAction={confirmReconciliationAction}
+                          className="btn-secondary py-1 px-2 text-xs"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          type="submit"
+                          formAction={disputeReconciliationAction}
+                          className="btn-secondary py-1 px-2 text-xs"
+                        >
+                          Dispute
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {reconciliations.length === 0 && (
+            <p className="text-sm text-stone-500">No reconciliations submitted yet.</p>
+          )}
+        </div>
+      </div>
 
       <div className="card">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-3">

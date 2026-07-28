@@ -1,17 +1,18 @@
 import Link from "next/link";
-import { SessionPayload } from "@/lib/session";
+import { ROLE_HOME, SessionPayload } from "@/lib/session";
 import { logoutAction } from "@/app/login/actions";
 
 export default function NavBar({ session }: { session: SessionPayload | null }) {
   if (!session) return null;
 
   const isManager = session.role === "MANAGER";
+  const isLogRole = session.role === "STOREKEEPER" || session.role === "KITCHEN" || session.role === "BAR";
 
   return (
     <header className="border-b border-stone-200 bg-white">
       <div className="mx-auto max-w-5xl px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
         <Link
-          href={isManager ? "/dashboard" : "/log"}
+          href={ROLE_HOME[session.role]}
           className="flex items-center gap-2 font-semibold text-brand-700 mr-2"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -19,7 +20,7 @@ export default function NavBar({ session }: { session: SessionPayload | null }) 
           Mishkak Inventory
         </Link>
         <nav className="flex flex-wrap gap-4 text-sm text-stone-600">
-          {!isManager && (
+          {isLogRole && (
             <Link href="/log" className="hover:text-brand-700">
               Log Activity
             </Link>
@@ -27,6 +28,11 @@ export default function NavBar({ session }: { session: SessionPayload | null }) 
           {session.role === "STOREKEEPER" && (
             <Link href="/stock-take" className="hover:text-brand-700">
               Stock Take
+            </Link>
+          )}
+          {session.role === "SUPERVISOR" && (
+            <Link href="/supervisor" className="hover:text-brand-700">
+              Supervisor
             </Link>
           )}
           {isManager && (

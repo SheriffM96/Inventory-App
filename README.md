@@ -193,16 +193,17 @@ trigger a notification for every entry.
 ## Project structure
 
 ```
-prisma/schema.prisma   Database models (User, Item, Vendor, Recipient, Purchase, Issuance, Usage, StockCount, NotificationLog)
-prisma/seed.ts          Seed data: item list, vendors, recipients, demo users
-src/lib/                Shared logic: db client, auth/session, stock calculations, units list, notify stub
-src/middleware.ts        Route protection (login required; manager-only pages; /log blocked for managers)
+prisma/schema.prisma   Database models (User, Item, Vendor, Recipient, Purchase, Issuance, Usage, StockCount, MenuItem, DailyReconciliation, SaleLine, NotificationLog)
+prisma/seed.ts          Seed data: item list, vendors, recipients, menu items, demo users
+src/lib/                Shared logic: db client, auth/session (incl. ROLE_HOME), stock calculations, units list, notify stub
+src/middleware.ts        Route protection - login required, per-prefix role map (PREFIX_ROLES), redirects to each role's home
 src/app/login/           PIN sign-in
 src/app/log/             Purchase + Issuance forms (storekeeper), Usage form + team reconciliation (kitchen/bar)
 src/app/stock-take/      Storekeeper (+ Manager): physical stock count, becomes the new on-hand baseline
-src/app/dashboard/       Manager: stock levels (with category filter), purchases, issuances, usage activity
+src/app/supervisor/      Supervisor: read-only stock levels + end-of-day reconciliation (cash/transfer/POS + sales by item)
+src/app/dashboard/       Manager: stock levels (with category filter), purchases, issuances, usage activity, reconciliation review
 src/app/reports/         Manager: daily and monthly reports + CSV export
-src/app/items/           Manager: items, vendors, recipients, Excel import/template
+src/app/items/           Manager: items, vendors, recipients, menu items, Excel import/template
 src/app/users/           Manager: manage staff logins
 ```
 

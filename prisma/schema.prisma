@@ -12,12 +12,19 @@ enum Role {
   KITCHEN
   BAR
   MANAGER
+  SUPERVISOR
 }
 
 enum Team {
   KITCHEN
   BAR
   CLEANING
+}
+
+enum ReconciliationStatus {
+  PENDING
+  CONFIRMED
+  DISPUTED
 }
 
 model User {
@@ -28,10 +35,12 @@ model User {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  purchases   Purchase[]
-  issuances   Issuance[]
-  usages      Usage[]
-  stockCounts StockCount[]
+  purchases              Purchase[]
+  issuances              Issuance[]
+  usages                 Usage[]
+  stockCounts            StockCount[]
+  submittedReconciliations DailyReconciliation[] @relation("ReconciliationSubmittedBy")
+  reviewedReconciliations DailyReconciliation[]  @relation("ReconciliationReviewedBy")
 }
 
 model Item {
@@ -141,6 +150,58 @@ model StockCount {
 
   @@index([date])
   @@index([itemId])
+}
+
+/// A sellable menu dish/drink (e.g. "Chicken Shawarma", "Mint Mocktail") -
+/// distinct from Item, which is a raw ingredient tracked for stock purposes.
+/// Used to record what was actually sold each day, separate from ingredient
+/// usage logged by kitchen/bar.
+model MenuItem {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  category  String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  saleLines SaleLine[]
+}
+
+/// The supervisor's end-of-day submission: total sales broken down by
+/// payment method. The manager reviews it against the bank (POS/transfer)
+/// and physical cash handed to them, then marks it Confirmed or Disputed.
+/// One per calendar day - `date` is normalized to the start of that day.
+model DailyReconciliation {
+  id            String               @id @default(cuid())
+  date          DateTime             @unique
+  cashTotal     Decimal              @db.Decimal(12, 2)
+  transferTotal Decimal              @db.Decimal(12, 2)
+  posTotal      Decimal              @db.Decimal(12, 2)
+  notes         String?
+  status        ReconciliationStatus @default(PENDING)
+  managerNotes  String?
+  submittedBy   User                 @relation("ReconciliationSubmittedBy", fields: [submittedById], references: [id])
+  submittedById String
+  reviewedBy    User?                @relation("ReconciliationReviewedBy", fields: [reviewedById], references: [id])
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  saleLines SaleLine[]
+
+  @@index([date])
+}
+
+/// Quantity sold of one menu item within a day's reconciliation.
+model SaleLine {
+  id               String              @id @default(cuid())
+  reconciliation   DailyReconciliation @relation(fields: [reconciliationId], references: [id])
+  reconciliationId String
+  menuItem         MenuItem            @relation(fields: [menuItemId], references: [id])
+  menuItemId       String
+  quantitySold     Decimal             @db.Decimal(12, 2)
+
+  @@unique([reconciliationId, menuItemId])
 }
 
 model NotificationLog {

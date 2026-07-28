@@ -35,6 +35,7 @@ export default function AddUserForm() {
           <option value="KITCHEN">Kitchen Staff</option>
           <option value="BAR">Bar Staff</option>
           <option value="MANAGER">Manager</option>
+          <option value="SUPERVISOR">Supervisor</option>
         </select>
       </div>
       <div>

@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
+import { ROLE_HOME, Role, SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 
-const MANAGER_ONLY_PREFIXES = ["/dashboard", "/reports", "/items", "/users", "/api/reports", "/api/items"];
-const NON_MANAGER_PREFIXES = ["/log"];
+// Each route prefix lists which roles may access it. A prefix with no entry
+// here is open to any authenticated role (e.g. /stock-take, which itself
+// enforces STOREKEEPER/MANAGER via requireRole at the page level).
+const PREFIX_ROLES: Record<string, Role[]> = {
+  "/dashboard": ["MANAGER"],
+  "/reports": ["MANAGER"],
+  "/items": ["MANAGER"],
+  "/users": ["MANAGER"],
+  "/api/reports": ["MANAGER"],
+  "/api/items": ["MANAGER"],
+  "/log": ["STOREKEEPER", "KITCHEN", "BAR"],
+  "/supervisor": ["SUPERVISOR"],
+};
 const PUBLIC_PATHS = ["/login"];
 
 export async function middleware(req: NextRequest) {
@@ -21,12 +32,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (MANAGER_ONLY_PREFIXES.some((p) => pathname.startsWith(p)) && session.role !== "MANAGER") {
-    return NextResponse.redirect(new URL("/log", req.url));
-  }
+  const matchedPrefix = Object.keys(PREFIX_ROLES)
+    .filter((p) => pathname.startsWith(p))
+    .sort((a, b) => b.length - a.length)[0];
 
-  if (NON_MANAGER_PREFIXES.some((p) => pathname.startsWith(p)) && session.role === "MANAGER") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+  if (matchedPrefix && !PREFIX_ROLES[matchedPrefix].includes(session.role)) {
+    return NextResponse.redirect(new URL(ROLE_HOME[session.role], req.url));
   }
 
   return NextResponse.next();

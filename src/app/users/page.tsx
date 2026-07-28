@@ -8,6 +8,7 @@ const ROLE_LABELS: Record<string, string> = {
   KITCHEN: "Kitchen Staff",
   BAR: "Bar Staff",
   MANAGER: "Manager",
+  SUPERVISOR: "Supervisor",
 };
 
 export default async function UsersPage() {

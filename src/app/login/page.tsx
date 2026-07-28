@@ -19,7 +19,7 @@ export default async function LoginPage({
         <img src="/mishkak-logo.jpg" alt="Mishkak" className="w-24 h-24 mx-auto mb-3 rounded" />
         <h1 className="text-xl font-semibold mb-1 text-brand-700 text-center">Mishkak Inventory</h1>
         <p className="text-sm text-stone-500 mb-6 text-center">Sign in to log or view inventory activity.</p>
-        <LoginForm users={users} next={searchParams.next ?? "/log"} />
+        <LoginForm users={users} next={searchParams.next ?? ""} />
       </div>
     </div>
   );

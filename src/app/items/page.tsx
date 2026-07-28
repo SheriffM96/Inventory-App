@@ -5,9 +5,11 @@ import AddItemForm from "./AddItemForm";
 import ImportItemsForm from "./ImportItemsForm";
 import AddVendorForm from "./AddVendorForm";
 import AddRecipientForm from "./AddRecipientForm";
+import AddMenuItemForm from "./AddMenuItemForm";
 import { toggleItemActiveAction, updateItemAction } from "./actions";
 import { toggleVendorActiveAction } from "./vendor-actions";
 import { toggleRecipientActiveAction } from "./recipient-actions";
+import { toggleMenuItemActiveAction } from "./menu-actions";
 
 const TEAM_LABELS: Record<string, string> = {
   KITCHEN: "Kitchen",
@@ -18,12 +20,14 @@ const TEAM_LABELS: Record<string, string> = {
 export default async function ItemsPage() {
   await requireRole(["MANAGER"]);
 
-  const [items, vendors, recipients] = await Promise.all([
+  const [items, vendors, recipients, menuItems] = await Promise.all([
     prisma.item.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] }),
     prisma.vendor.findMany({ orderBy: { name: "asc" } }),
     prisma.recipient.findMany({ orderBy: [{ team: "asc" }, { name: "asc" }] }),
+    prisma.menuItem.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] }),
   ]);
   const categories = Array.from(new Set(items.map((i) => i.category))).sort();
+  const menuCategories = Array.from(new Set(menuItems.map((m) => m.category))).sort();
 
   return (
     <div className="space-y-6">
@@ -195,6 +199,36 @@ export default async function ItemsPage() {
             </div>
           ))}
           {recipients.length === 0 && <p className="text-sm text-stone-500">No recipients added yet.</p>}
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Menu Items ({menuItems.length})</h2>
+        <p className="text-sm text-stone-600 mb-3">
+          Sellable dishes/drinks - the supervisor logs quantity sold per item in the end-of-day reconciliation.
+        </p>
+        <AddMenuItemForm categories={menuCategories} />
+        <div className="mt-4 space-y-2">
+          {menuItems.map((menuItem) => (
+            <div
+              key={menuItem.id}
+              className={`flex items-center justify-between border-b border-stone-100 pb-2 ${
+                !menuItem.active ? "opacity-50" : ""
+              }`}
+            >
+              <span>
+                {menuItem.name} <span className="text-stone-400">({menuItem.category})</span>
+              </span>
+              <form action={toggleMenuItemActiveAction}>
+                <input type="hidden" name="id" value={menuItem.id} />
+                <input type="hidden" name="active" value={String(menuItem.active)} />
+                <button type="submit" className="btn-secondary py-1 px-2 text-xs">
+                  {menuItem.active ? "Deactivate" : "Activate"}
+                </button>
+              </form>
+            </div>
+          ))}
+          {menuItems.length === 0 && <p className="text-sm text-stone-500">No menu items added yet.</p>}
         </div>
       </div>
     </div>
