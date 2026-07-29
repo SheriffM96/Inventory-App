@@ -53,10 +53,11 @@ model Item {
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  purchases   Purchase[]
-  issuances   Issuance[]
-  usages      Usage[]
-  stockCounts StockCount[]
+  purchases    Purchase[]
+  issuances    Issuance[]
+  usages       Usage[]
+  stockCounts  StockCount[]
+  recipeItems  RecipeItem[]
 }
 
 model Vendor {
@@ -163,7 +164,24 @@ model MenuItem {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  saleLines SaleLine[]
+  saleLines   SaleLine[]
+  recipeItems RecipeItem[]
+}
+
+/// Maps a menu item to the raw ingredients it takes to make one unit of it,
+/// e.g. 1 Chicken Mandi = 0.35 kg chicken + 0.3 kg rice. Lets the manager
+/// compare expected ingredient usage (sales x recipe) against what kitchen/
+/// bar actually logged, to spot waste, over-portioning, or shrinkage.
+model RecipeItem {
+  id              String   @id @default(cuid())
+  menuItem        MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  menuItemId      String
+  item            Item     @relation(fields: [itemId], references: [id])
+  itemId          String
+  quantityPerUnit Decimal  @db.Decimal(12, 4)
+  createdAt       DateTime @default(now())
+
+  @@unique([menuItemId, itemId])
 }
 
 /// The supervisor's end-of-day submission: total sales broken down by

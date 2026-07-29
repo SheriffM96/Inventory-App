@@ -2,7 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
 import { computeStockLevels } from "@/lib/stock";
-import { formatMoney, startOfDay } from "@/lib/dates";
+import { computeIngredientVariance } from "@/lib/variance";
+import { formatMoney, startOfDay, endOfDay } from "@/lib/dates";
 import ConfirmDeleteForm from "@/components/ConfirmDeleteForm";
 import ScrollableTable from "@/components/ScrollableTable";
 import { deletePurchaseAction, deleteIssuanceAction, deleteUsageAction } from "@/app/log/actions";
@@ -38,7 +39,7 @@ export default async function DashboardPage({
 }) {
   await requireRole(["MANAGER"]);
 
-  const [stockLevels, recentPurchases, recentIssuances, recentUsage, purchaseTotal, reconciliations] =
+  const [stockLevels, recentPurchases, recentIssuances, recentUsage, purchaseTotal, reconciliations, todaysVariance] =
     await Promise.all([
       computeStockLevels(),
       prisma.purchase.findMany({
@@ -66,6 +67,7 @@ export default async function DashboardPage({
         orderBy: { date: "desc" },
         take: 14,
       }),
+      computeIngredientVariance({ gte: startOfDay(new Date()), lte: endOfDay(new Date()) }),
     ]);
 
   const lowStockItems = stockLevels.filter((s) => s.lowStock);
@@ -357,6 +359,45 @@ export default async function DashboardPage({
                 <tr key={row.name}>
                   <td>{row.name}</td>
                   <td>{row.qty}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Today&apos;s Ingredient Variance</h2>
+        <p className="text-sm text-stone-500 mb-3">
+          Expected (from menu item sales x recipe) vs actual (kitchen/bar logged usage). See Items &amp; Vendors
+          &rarr; Menu Items &rarr; Recipe to map dishes to ingredients.
+        </p>
+        {todaysVariance.length === 0 ? (
+          <p className="text-sm text-stone-500">No ingredients have a recipe mapped yet.</p>
+        ) : (
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th>Ingredient</th>
+                <th>Expected</th>
+                <th>Actual</th>
+                <th>Variance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {todaysVariance.map((v) => (
+                <tr key={v.itemId} className={Math.abs(v.variance) > 0.01 ? "bg-amber-50" : undefined}>
+                  <td>{v.name}</td>
+                  <td>
+                    {v.expectedUsage.toFixed(2)} {v.unit}
+                  </td>
+                  <td>
+                    {v.actualUsage.toFixed(2)} {v.unit}
+                  </td>
+                  <td className="font-medium">
+                    {v.variance > 0 ? "+" : ""}
+                    {v.variance.toFixed(2)} {v.unit}
+                  </td>
                 </tr>
               ))}
             </tbody>

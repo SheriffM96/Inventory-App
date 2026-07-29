@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { parseMonthParam, monthRange, toMonthInputValue } from "@/lib/dates";
 import { computeStockLevels } from "@/lib/stock";
+import { computeIngredientVariance } from "@/lib/variance";
 
 function csvEscape(value: string | number): string {
   const s = String(value);
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   const { start, end } = monthRange(year, month);
   const monthValue = toMonthInputValue(start);
 
-  const [purchases, issuances, usage, remainingAsOfMonthEnd, reconciliations] = await Promise.all([
+  const [purchases, issuances, usage, remainingAsOfMonthEnd, reconciliations, ingredientVariance] = await Promise.all([
     prisma.purchase.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     prisma.issuance.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     prisma.usage.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
       where: { date: { gte: start, lte: end } },
       include: { saleLines: { include: { menuItem: true } } },
     }),
+    computeIngredientVariance({ gte: start, lte: end }),
   ]);
 
   type Row = {
@@ -118,7 +120,7 @@ export async function GET(req: NextRequest) {
 
   lines.push("");
   lines.push("Sales Reconciliation Summary");
-  lines.push("Days Submitted,Cash,Transfer,POS,Total Sales");
+  lines.push("Reconciliations Submitted,Cash,Transfer,POS,Total Sales");
   lines.push(
     [
       reconciliations.length,
@@ -132,6 +134,21 @@ export async function GET(req: NextRequest) {
   lines.push("Sales by Item,Category,Quantity Sold");
   for (const r of sortedSoldRows) {
     lines.push([csvEscape(r.name), csvEscape(r.category), r.qty].join(","));
+  }
+
+  lines.push("");
+  lines.push("Sales vs Usage Variance");
+  if (ingredientVariance.length === 0) {
+    lines.push("No ingredients have a recipe mapped yet.");
+  } else {
+    lines.push("Ingredient,Expected (from sales),Actual (logged),Variance,Unit");
+    for (const v of ingredientVariance) {
+      lines.push(
+        [csvEscape(v.name), v.expectedUsage.toFixed(2), v.actualUsage.toFixed(2), v.variance.toFixed(2), v.unit].join(
+          ","
+        )
+      );
+    }
   }
 
   const csv = lines.join("\n");

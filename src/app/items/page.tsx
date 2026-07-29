@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
 import { UNITS } from "@/lib/units";
@@ -219,13 +220,18 @@ export default async function ItemsPage() {
               <span>
                 {menuItem.name} <span className="text-stone-400">({menuItem.category})</span>
               </span>
-              <form action={toggleMenuItemActiveAction}>
-                <input type="hidden" name="id" value={menuItem.id} />
-                <input type="hidden" name="active" value={String(menuItem.active)} />
-                <button type="submit" className="btn-secondary py-1 px-2 text-xs">
-                  {menuItem.active ? "Deactivate" : "Activate"}
-                </button>
-              </form>
+              <div className="flex items-center gap-2">
+                <Link href={`/items/recipes/${menuItem.id}`} className="btn-secondary py-1 px-2 text-xs">
+                  Recipe
+                </Link>
+                <form action={toggleMenuItemActiveAction}>
+                  <input type="hidden" name="id" value={menuItem.id} />
+                  <input type="hidden" name="active" value={String(menuItem.active)} />
+                  <button type="submit" className="btn-secondary py-1 px-2 text-xs">
+                    {menuItem.active ? "Deactivate" : "Activate"}
+                  </button>
+                </form>
+              </div>
             </div>
           ))}
           {menuItems.length === 0 && <p className="text-sm text-stone-500">No menu items added yet.</p>}

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
 import { startOfDay, endOfDay, parseDateParam, toDateInputValue, formatMoney } from "@/lib/dates";
+import { computeIngredientVariance } from "@/lib/variance";
 
 function formatTime(date: Date): string {
   return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -22,7 +23,7 @@ export default async function DailyReportPage({
   const date = parseDateParam(searchParams.date);
   const range = { gte: startOfDay(date), lte: endOfDay(date) };
 
-  const [purchases, issuances, usage, reconciliations] = await Promise.all([
+  const [purchases, issuances, usage, reconciliations, ingredientVariance] = await Promise.all([
     prisma.purchase.findMany({
       where: { date: range },
       include: { item: true, vendor: true },
@@ -39,6 +40,7 @@ export default async function DailyReportPage({
       include: { submittedBy: true, saleLines: { include: { menuItem: true } } },
       orderBy: { date: "asc" },
     }),
+    computeIngredientVariance(range),
   ]);
 
   const usedByItem = new Map<string, { name: string; unit: string; qty: number }>();
@@ -230,6 +232,47 @@ export default async function DailyReportPage({
                   <td>{r.name}</td>
                   <td className="text-stone-500">{r.category}</td>
                   <td>{r.qty}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Sales vs Usage Variance - {dateValue}</h2>
+        <p className="text-sm text-stone-600 mb-3">
+          Expected usage comes from menu item sales x recipe (Items &amp; Vendors &rarr; Menu Items &rarr; Recipe).
+          Actual usage is what kitchen/bar logged. A positive variance means more was used than the sales explain.
+        </p>
+        {ingredientVariance.length === 0 ? (
+          <p className="text-sm text-stone-500">
+            No ingredients have a recipe mapped yet - set one up under Items &amp; Vendors to see this comparison.
+          </p>
+        ) : (
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th>Ingredient</th>
+                <th>Expected (from sales)</th>
+                <th>Actual (logged)</th>
+                <th>Variance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ingredientVariance.map((v) => (
+                <tr key={v.itemId} className={Math.abs(v.variance) > 0.01 ? "bg-amber-50" : undefined}>
+                  <td>{v.name}</td>
+                  <td>
+                    {v.expectedUsage.toFixed(2)} {v.unit}
+                  </td>
+                  <td>
+                    {v.actualUsage.toFixed(2)} {v.unit}
+                  </td>
+                  <td className="font-medium">
+                    {v.variance > 0 ? "+" : ""}
+                    {v.variance.toFixed(2)} {v.unit}
+                  </td>
                 </tr>
               ))}
             </tbody>

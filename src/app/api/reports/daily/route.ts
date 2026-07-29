@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { startOfDay, endOfDay, parseDateParam, toDateInputValue } from "@/lib/dates";
+import { computeIngredientVariance } from "@/lib/variance";
 
 function csvEscape(value: string | number): string {
   const s = String(value);
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   const range = { gte: startOfDay(date), lte: endOfDay(date) };
   const dateValue = toDateInputValue(date);
 
-  const [purchases, issuances, usage, reconciliations] = await Promise.all([
+  const [purchases, issuances, usage, reconciliations, ingredientVariance] = await Promise.all([
     prisma.purchase.findMany({ where: { date: range }, include: { item: true, vendor: true }, orderBy: { date: "asc" } }),
     prisma.issuance.findMany({
       where: { date: range },
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
       include: { submittedBy: true, saleLines: { include: { menuItem: true } } },
       orderBy: { date: "asc" },
     }),
+    computeIngredientVariance(range),
   ]);
 
   const usedByItem = new Map<string, { name: string; unit: string; qty: number }>();
@@ -138,6 +140,21 @@ export async function GET(req: NextRequest) {
     }
   } else {
     lines.push("No reconciliation submitted for this date.");
+  }
+
+  lines.push("");
+  lines.push("Sales vs Usage Variance");
+  if (ingredientVariance.length === 0) {
+    lines.push("No ingredients have a recipe mapped yet.");
+  } else {
+    lines.push("Ingredient,Expected (from sales),Actual (logged),Variance,Unit");
+    for (const v of ingredientVariance) {
+      lines.push(
+        [csvEscape(v.name), v.expectedUsage.toFixed(2), v.actualUsage.toFixed(2), v.variance.toFixed(2), v.unit].join(
+          ","
+        )
+      );
+    }
   }
 
   const csv = lines.join("\n");

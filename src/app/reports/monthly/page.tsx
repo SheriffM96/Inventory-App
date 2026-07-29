@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
 import { parseMonthParam, monthRange, toMonthInputValue, formatMoney } from "@/lib/dates";
 import { computeStockLevels } from "@/lib/stock";
+import { computeIngredientVariance } from "@/lib/variance";
 
 export default async function MonthlyReportPage({
   searchParams,
@@ -14,7 +15,7 @@ export default async function MonthlyReportPage({
   const { start, end } = monthRange(year, month);
   const monthValue = toMonthInputValue(start);
 
-  const [purchases, issuances, usage, remainingAsOfMonthEnd, reconciliations] = await Promise.all([
+  const [purchases, issuances, usage, remainingAsOfMonthEnd, reconciliations, ingredientVariance] = await Promise.all([
     prisma.purchase.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     prisma.issuance.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
     prisma.usage.findMany({ where: { date: { gte: start, lte: end } }, include: { item: true } }),
@@ -23,6 +24,7 @@ export default async function MonthlyReportPage({
       where: { date: { gte: start, lte: end } },
       include: { saleLines: { include: { menuItem: true } } },
     }),
+    computeIngredientVariance({ gte: start, lte: end }),
   ]);
 
   type Row = {
@@ -164,7 +166,7 @@ export default async function MonthlyReportPage({
           <p className="text-sm text-stone-500">No reconciliations submitted this month.</p>
         ) : (
           <div className="text-sm space-y-1">
-            <p>Days submitted: {reconciliations.length}</p>
+            <p>Reconciliations submitted: {reconciliations.length}</p>
             <p>
               Cash: {formatMoney(monthCashTotal)} - Transfer: {formatMoney(monthTransferTotal)} - POS:{" "}
               {formatMoney(monthPosTotal)}
@@ -194,6 +196,49 @@ export default async function MonthlyReportPage({
                     <td>{r.name}</td>
                     <td className="text-stone-500">{r.category}</td>
                     <td>{r.qty}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-3">Sales vs Usage Variance - {monthValue}</h2>
+        <p className="text-sm text-stone-600 mb-3">
+          Expected usage comes from menu item sales x recipe (Items &amp; Vendors &rarr; Menu Items &rarr; Recipe).
+          Actual usage is what kitchen/bar logged. A positive variance means more was used than the sales explain.
+        </p>
+        {ingredientVariance.length === 0 ? (
+          <p className="text-sm text-stone-500">
+            No ingredients have a recipe mapped yet - set one up under Items &amp; Vendors to see this comparison.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table-base">
+              <thead>
+                <tr>
+                  <th>Ingredient</th>
+                  <th>Expected (from sales)</th>
+                  <th>Actual (logged)</th>
+                  <th>Variance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ingredientVariance.map((v) => (
+                  <tr key={v.itemId} className={Math.abs(v.variance) > 0.01 ? "bg-amber-50" : undefined}>
+                    <td>{v.name}</td>
+                    <td>
+                      {v.expectedUsage.toFixed(2)} {v.unit}
+                    </td>
+                    <td>
+                      {v.actualUsage.toFixed(2)} {v.unit}
+                    </td>
+                    <td className="font-medium">
+                      {v.variance > 0 ? "+" : ""}
+                      {v.variance.toFixed(2)} {v.unit}
+                    </td>
                   </tr>
                 ))}
               </tbody>
