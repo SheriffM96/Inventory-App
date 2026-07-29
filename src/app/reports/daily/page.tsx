@@ -22,7 +22,7 @@ export default async function DailyReportPage({
   const date = parseDateParam(searchParams.date);
   const range = { gte: startOfDay(date), lte: endOfDay(date) };
 
-  const [purchases, issuances, usage, reconciliation] = await Promise.all([
+  const [purchases, issuances, usage, reconciliations] = await Promise.all([
     prisma.purchase.findMany({
       where: { date: range },
       include: { item: true, vendor: true },
@@ -34,9 +34,10 @@ export default async function DailyReportPage({
       orderBy: { date: "asc" },
     }),
     prisma.usage.findMany({ where: { date: range }, include: { item: true } }),
-    prisma.dailyReconciliation.findUnique({
-      where: { date: startOfDay(date) },
+    prisma.dailyReconciliation.findMany({
+      where: { date: range },
       include: { submittedBy: true, saleLines: { include: { menuItem: true } } },
+      orderBy: { date: "asc" },
     }),
   ]);
 
@@ -49,6 +50,28 @@ export default async function DailyReportPage({
 
   const totalSpend = purchases.reduce((sum, p) => sum + Number(p.totalCost), 0);
   const dateValue = toDateInputValue(date);
+
+  const dayCashTotal = reconciliations.reduce((sum, r) => sum + Number(r.cashTotal), 0);
+  const dayTransferTotal = reconciliations.reduce((sum, r) => sum + Number(r.transferTotal), 0);
+  const dayPosTotal = reconciliations.reduce((sum, r) => sum + Number(r.posTotal), 0);
+  const daySalesTotal = dayCashTotal + dayTransferTotal + dayPosTotal;
+
+  const soldByMenuItem = new Map<string, { name: string; category: string; qty: number }>();
+  for (const r of reconciliations) {
+    for (const line of r.saleLines) {
+      const existing = soldByMenuItem.get(line.menuItemId);
+      if (existing) {
+        existing.qty += Number(line.quantitySold);
+      } else {
+        soldByMenuItem.set(line.menuItemId, {
+          name: line.menuItem.name,
+          category: line.menuItem.category,
+          qty: Number(line.quantitySold),
+        });
+      }
+    }
+  }
+  const sortedSoldRows = Array.from(soldByMenuItem.values()).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="space-y-6">
@@ -162,32 +185,35 @@ export default async function DailyReportPage({
 
       <div className="card">
         <h2 className="text-lg font-semibold mb-3">Sales Reconciliation - {dateValue}</h2>
-        {!reconciliation ? (
+        {reconciliations.length === 0 ? (
           <p className="text-sm text-stone-500">No reconciliation submitted for this date.</p>
         ) : (
-          <div className="text-sm space-y-1">
-            <p>Submitted by {reconciliation.submittedBy.name}</p>
-            <p>
-              Cash: {formatMoney(Number(reconciliation.cashTotal))} - Transfer:{" "}
-              {formatMoney(Number(reconciliation.transferTotal))} - POS: {formatMoney(Number(reconciliation.posTotal))}
+          <div className="space-y-3">
+            {reconciliations.map((r) => (
+              <div key={r.id} className="text-sm space-y-1 border-b border-stone-100 pb-2 last:border-0">
+                <p>
+                  {formatTime(r.date)} - submitted by {r.submittedBy.name}
+                </p>
+                <p>
+                  Cash: {formatMoney(Number(r.cashTotal))} - Transfer: {formatMoney(Number(r.transferTotal))} - POS:{" "}
+                  {formatMoney(Number(r.posTotal))}
+                </p>
+                <p>Status: {RECONCILIATION_STATUS_LABELS[r.status]}</p>
+                {r.notes && <p className="text-stone-500">Notes: {r.notes}</p>}
+              </div>
+            ))}
+            <p className="text-sm font-medium">
+              Cash: {formatMoney(dayCashTotal)} - Transfer: {formatMoney(dayTransferTotal)} - POS:{" "}
+              {formatMoney(dayPosTotal)}
             </p>
-            <p className="font-medium">
-              Total Sales:{" "}
-              {formatMoney(
-                Number(reconciliation.cashTotal) +
-                  Number(reconciliation.transferTotal) +
-                  Number(reconciliation.posTotal)
-              )}
-            </p>
-            <p>Status: {RECONCILIATION_STATUS_LABELS[reconciliation.status]}</p>
-            {reconciliation.notes && <p className="text-stone-500">Notes: {reconciliation.notes}</p>}
+            <p className="font-medium">Total Sales for the day: {formatMoney(daySalesTotal)}</p>
           </div>
         )}
       </div>
 
       <div className="card">
         <h2 className="text-lg font-semibold mb-3">Sales by Item - {dateValue}</h2>
-        {!reconciliation || reconciliation.saleLines.length === 0 ? (
+        {sortedSoldRows.length === 0 ? (
           <p className="text-sm text-stone-500">No sales logged for this date.</p>
         ) : (
           <table className="table-base">
@@ -199,15 +225,13 @@ export default async function DailyReportPage({
               </tr>
             </thead>
             <tbody>
-              {[...reconciliation.saleLines]
-                .sort((a, b) => a.menuItem.name.localeCompare(b.menuItem.name))
-                .map((line) => (
-                  <tr key={line.menuItemId}>
-                    <td>{line.menuItem.name}</td>
-                    <td className="text-stone-500">{line.menuItem.category}</td>
-                    <td>{line.quantitySold.toString()}</td>
-                  </tr>
-                ))}
+              {sortedSoldRows.map((r) => (
+                <tr key={r.name}>
+                  <td>{r.name}</td>
+                  <td className="text-stone-500">{r.category}</td>
+                  <td>{r.qty}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}

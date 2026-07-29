@@ -169,10 +169,12 @@ model MenuItem {
 /// The supervisor's end-of-day submission: total sales broken down by
 /// payment method. The manager reviews it against the bank (POS/transfer)
 /// and physical cash handed to them, then marks it Confirmed or Disputed.
-/// One per calendar day - `date` is normalized to the start of that day.
+/// Multiple can be submitted per day (e.g. per shift) - `date` is the actual
+/// submission time, not normalized to a calendar day. The manager can delete
+/// any of them regardless of status.
 model DailyReconciliation {
   id            String               @id @default(cuid())
-  date          DateTime             @unique
+  date          DateTime             @default(now())
   cashTotal     Decimal              @db.Decimal(12, 2)
   transferTotal Decimal              @db.Decimal(12, 2)
   posTotal      Decimal              @db.Decimal(12, 2)
@@ -195,7 +197,7 @@ model DailyReconciliation {
 /// Quantity sold of one menu item within a day's reconciliation.
 model SaleLine {
   id               String              @id @default(cuid())
-  reconciliation   DailyReconciliation @relation(fields: [reconciliationId], references: [id])
+  reconciliation   DailyReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
   reconciliationId String
   menuItem         MenuItem            @relation(fields: [menuItemId], references: [id])
   menuItemId       String

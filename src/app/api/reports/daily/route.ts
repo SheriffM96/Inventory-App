@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const range = { gte: startOfDay(date), lte: endOfDay(date) };
   const dateValue = toDateInputValue(date);
 
-  const [purchases, issuances, usage, reconciliation] = await Promise.all([
+  const [purchases, issuances, usage, reconciliations] = await Promise.all([
     prisma.purchase.findMany({ where: { date: range }, include: { item: true, vendor: true }, orderBy: { date: "asc" } }),
     prisma.issuance.findMany({
       where: { date: range },
@@ -31,9 +31,10 @@ export async function GET(req: NextRequest) {
       orderBy: { date: "asc" },
     }),
     prisma.usage.findMany({ where: { date: range }, include: { item: true } }),
-    prisma.dailyReconciliation.findUnique({
-      where: { date: startOfDay(date) },
+    prisma.dailyReconciliation.findMany({
+      where: { date: range },
       include: { submittedBy: true, saleLines: { include: { menuItem: true } } },
+      orderBy: { date: "asc" },
     }),
   ]);
 
@@ -82,25 +83,58 @@ export async function GET(req: NextRequest) {
 
   lines.push("");
   lines.push("Sales Reconciliation");
-  if (reconciliation) {
-    const total =
-      Number(reconciliation.cashTotal) + Number(reconciliation.transferTotal) + Number(reconciliation.posTotal);
-    lines.push("Submitted By,Cash,Transfer,POS,Total Sales,Status,Notes");
+  if (reconciliations.length > 0) {
+    lines.push("Time,Submitted By,Cash,Transfer,POS,Total Sales,Status,Notes");
+    for (const r of reconciliations) {
+      const total = Number(r.cashTotal) + Number(r.transferTotal) + Number(r.posTotal);
+      lines.push(
+        [
+          formatTime(r.date),
+          csvEscape(r.submittedBy.name),
+          Number(r.cashTotal).toFixed(2),
+          Number(r.transferTotal).toFixed(2),
+          Number(r.posTotal).toFixed(2),
+          total.toFixed(2),
+          r.status,
+          csvEscape(r.notes ?? ""),
+        ].join(",")
+      );
+    }
+
+    const dayCashTotal = reconciliations.reduce((sum, r) => sum + Number(r.cashTotal), 0);
+    const dayTransferTotal = reconciliations.reduce((sum, r) => sum + Number(r.transferTotal), 0);
+    const dayPosTotal = reconciliations.reduce((sum, r) => sum + Number(r.posTotal), 0);
+    lines.push("");
+    lines.push("Total Cash,Total Transfer,Total POS,Total Sales for the Day");
     lines.push(
       [
-        csvEscape(reconciliation.submittedBy.name),
-        Number(reconciliation.cashTotal).toFixed(2),
-        Number(reconciliation.transferTotal).toFixed(2),
-        Number(reconciliation.posTotal).toFixed(2),
-        total.toFixed(2),
-        reconciliation.status,
-        csvEscape(reconciliation.notes ?? ""),
+        dayCashTotal.toFixed(2),
+        dayTransferTotal.toFixed(2),
+        dayPosTotal.toFixed(2),
+        (dayCashTotal + dayTransferTotal + dayPosTotal).toFixed(2),
       ].join(",")
     );
+
+    const soldByMenuItem = new Map<string, { name: string; category: string; qty: number }>();
+    for (const r of reconciliations) {
+      for (const line of r.saleLines) {
+        const existing = soldByMenuItem.get(line.menuItemId);
+        if (existing) {
+          existing.qty += Number(line.quantitySold);
+        } else {
+          soldByMenuItem.set(line.menuItemId, {
+            name: line.menuItem.name,
+            category: line.menuItem.category,
+            qty: Number(line.quantitySold),
+          });
+        }
+      }
+    }
+
     lines.push("");
     lines.push("Sales by Item,Category,Quantity Sold");
-    for (const line of reconciliation.saleLines) {
-      lines.push([csvEscape(line.menuItem.name), csvEscape(line.menuItem.category), line.quantitySold.toString()].join(","));
+    for (const row of soldByMenuItem.values()) {
+      lines.push([csvEscape(row.name), csvEscape(row.category), row.qty].join(","));
     }
   } else {
     lines.push("No reconciliation submitted for this date.");

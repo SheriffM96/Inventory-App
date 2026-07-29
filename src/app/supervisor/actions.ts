@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/require-session";
-import { startOfDay } from "@/lib/dates";
 
 export type ReconciliationFormState = { error?: string; success?: string };
 
@@ -43,51 +42,20 @@ export async function submitReconciliationAction(
     saleLines.push({ menuItemId: menuItem.id, quantitySold: quantity });
   }
 
-  const today = startOfDay(new Date());
-  const existing = await prisma.dailyReconciliation.findUnique({ where: { date: today } });
-
-  if (existing && existing.status === "CONFIRMED") {
-    return {
-      error: "Today's reconciliation has already been confirmed by the manager and can no longer be edited.",
-    };
-  }
-
-  if (existing) {
-    // A disputed reconciliation goes back to PENDING on resubmit - it's a
-    // fresh review cycle, so the manager's prior verdict no longer applies.
-    await prisma.$transaction([
-      prisma.saleLine.deleteMany({ where: { reconciliationId: existing.id } }),
-      prisma.dailyReconciliation.update({
-        where: { id: existing.id },
-        data: {
-          cashTotal,
-          transferTotal,
-          posTotal,
-          notes,
-          status: "PENDING",
-          managerNotes: null,
-          reviewedById: null,
-          reviewedAt: null,
-          submittedById: session.userId,
-          saleLines: { createMany: { data: saleLines } },
-        },
-      }),
-    ]);
-  } else {
-    await prisma.dailyReconciliation.create({
-      data: {
-        date: today,
-        cashTotal,
-        transferTotal,
-        posTotal,
-        notes,
-        submittedById: session.userId,
-        saleLines: { createMany: { data: saleLines } },
-      },
-    });
-  }
+  await prisma.dailyReconciliation.create({
+    data: {
+      cashTotal,
+      transferTotal,
+      posTotal,
+      notes,
+      submittedById: session.userId,
+      saleLines: { createMany: { data: saleLines } },
+    },
+  });
 
   revalidatePath("/supervisor");
   revalidatePath("/dashboard");
-  return { success: "Saved today's reconciliation. The manager will review it against the bank and cash." };
+  revalidatePath("/reports/daily");
+  revalidatePath("/reports/monthly");
+  return { success: "Reconciliation submitted. The manager will review it against the bank and cash." };
 }

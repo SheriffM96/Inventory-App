@@ -30,3 +30,17 @@ export async function confirmReconciliationAction(formData: FormData): Promise<v
 export async function disputeReconciliationAction(formData: FormData): Promise<void> {
   await reviewReconciliation(formData, "DISPUTED");
 }
+
+export async function deleteReconciliationAction(formData: FormData): Promise<void> {
+  await requireRole(["MANAGER"]);
+
+  const id = String(formData.get("id") || "");
+  if (!id) return;
+
+  await prisma.dailyReconciliation.delete({ where: { id } }).catch(() => null);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/supervisor");
+  revalidatePath("/reports/daily");
+  revalidatePath("/reports/monthly");
+}

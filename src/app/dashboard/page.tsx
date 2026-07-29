@@ -6,7 +6,11 @@ import { formatMoney, startOfDay } from "@/lib/dates";
 import ConfirmDeleteForm from "@/components/ConfirmDeleteForm";
 import ScrollableTable from "@/components/ScrollableTable";
 import { deletePurchaseAction, deleteIssuanceAction, deleteUsageAction } from "@/app/log/actions";
-import { confirmReconciliationAction, disputeReconciliationAction } from "./reconciliation-actions";
+import {
+  confirmReconciliationAction,
+  disputeReconciliationAction,
+  deleteReconciliationAction,
+} from "./reconciliation-actions";
 
 function reconciliationTotal(r: { cashTotal: unknown; transferTotal: unknown; posTotal: unknown }): number {
   return Number(r.cashTotal) + Number(r.transferTotal) + Number(r.posTotal);
@@ -72,7 +76,21 @@ export default async function DashboardPage({
     : stockLevels;
   const totalPurchaseAmount = Number(purchaseTotal._sum.totalCost ?? 0);
   const today = startOfDay(new Date());
-  const todaysReconciliation = reconciliations.find((r) => startOfDay(r.date).getTime() === today.getTime());
+  const todaysReconciliations = reconciliations.filter((r) => startOfDay(r.date).getTime() === today.getTime());
+  const todaysSalesByItem = new Map<string, { name: string; qty: number }>();
+  for (const r of todaysReconciliations) {
+    for (const line of r.saleLines) {
+      const existing = todaysSalesByItem.get(line.menuItemId);
+      if (existing) {
+        existing.qty += Number(line.quantitySold);
+      } else {
+        todaysSalesByItem.set(line.menuItemId, { name: line.menuItem.name, qty: Number(line.quantitySold) });
+      }
+    }
+  }
+  const sortedTodaysSalesByItem = Array.from(todaysSalesByItem.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 
   return (
     <div className="space-y-6">
@@ -116,12 +134,7 @@ export default async function DashboardPage({
                 <div className="flex flex-wrap justify-between gap-2 text-sm">
                   <div>
                     <p className="font-medium">
-                      {new Date(r.date).toLocaleDateString(undefined, {
-                        weekday: "short",
-                        day: "2-digit",
-                        month: "short",
-                      })}{" "}
-                      - submitted by {r.submittedBy.name}
+                      {formatDateTime(r.date)} - submitted by {r.submittedBy.name}
                     </p>
                     <p>
                       Cash: {formatMoney(Number(r.cashTotal))} - Transfer: {formatMoney(Number(r.transferTotal))} -
@@ -149,33 +162,42 @@ export default async function DashboardPage({
                       </p>
                     )}
                   </div>
-                  {r.status === "PENDING" && (
-                    <form action={confirmReconciliationAction} className="flex flex-col gap-2 items-end">
-                      <input type="hidden" name="id" value={r.id} />
-                      <input
-                        name="managerNotes"
-                        type="text"
-                        placeholder="Note (optional)"
-                        className="input text-xs py-1"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="submit"
-                          formAction={confirmReconciliationAction}
-                          className="btn-secondary py-1 px-2 text-xs"
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          type="submit"
-                          formAction={disputeReconciliationAction}
-                          className="btn-secondary py-1 px-2 text-xs"
-                        >
-                          Dispute
-                        </button>
-                      </div>
-                    </form>
-                  )}
+                  <div className="flex flex-col gap-2 items-end">
+                    {r.status === "PENDING" && (
+                      <form action={confirmReconciliationAction} className="flex flex-col gap-2 items-end">
+                        <input type="hidden" name="id" value={r.id} />
+                        <input
+                          name="managerNotes"
+                          type="text"
+                          placeholder="Note (optional)"
+                          className="input text-xs py-1"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            formAction={confirmReconciliationAction}
+                            className="btn-secondary py-1 px-2 text-xs"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            type="submit"
+                            formAction={disputeReconciliationAction}
+                            className="btn-secondary py-1 px-2 text-xs"
+                          >
+                            Dispute
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                    <ConfirmDeleteForm
+                      action={deleteReconciliationAction}
+                      id={r.id}
+                      confirmMessage={`Delete this reconciliation submitted by ${r.submittedBy.name} at ${formatDateTime(
+                        r.date
+                      )}? This cannot be undone.`}
+                    />
+                  </div>
                 </div>
               </div>
             );
@@ -320,7 +342,7 @@ export default async function DashboardPage({
 
       <div className="card">
         <h2 className="text-lg font-semibold mb-3">Today&apos;s Sales by Item</h2>
-        {!todaysReconciliation || todaysReconciliation.saleLines.length === 0 ? (
+        {sortedTodaysSalesByItem.length === 0 ? (
           <p className="text-sm text-stone-500">No sales logged yet today.</p>
         ) : (
           <table className="table-base">
@@ -331,14 +353,12 @@ export default async function DashboardPage({
               </tr>
             </thead>
             <tbody>
-              {[...todaysReconciliation.saleLines]
-                .sort((a, b) => a.menuItem.name.localeCompare(b.menuItem.name))
-                .map((line) => (
-                  <tr key={line.menuItemId}>
-                    <td>{line.menuItem.name}</td>
-                    <td>{line.quantitySold.toString()}</td>
-                  </tr>
-                ))}
+              {sortedTodaysSalesByItem.map((row) => (
+                <tr key={row.name}>
+                  <td>{row.name}</td>
+                  <td>{row.qty}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
