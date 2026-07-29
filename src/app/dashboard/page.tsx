@@ -6,6 +6,7 @@ import { computeIngredientVariance } from "@/lib/variance";
 import { formatMoney, startOfDay, endOfDay } from "@/lib/dates";
 import ConfirmDeleteForm from "@/components/ConfirmDeleteForm";
 import ScrollableTable from "@/components/ScrollableTable";
+import ListSearch from "@/components/ListSearch";
 import { deletePurchaseAction, deleteIssuanceAction, deleteUsageAction } from "@/app/log/actions";
 import {
   confirmReconciliationAction,
@@ -227,36 +228,60 @@ export default async function DashboardPage({
             </button>
           </form>
         </div>
-        <ScrollableTable>
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="sticky top-0 bg-white z-10">Category</th>
-                <th className="sticky top-0 bg-white z-10">Item</th>
-                <th className="sticky top-0 bg-white z-10">Purchased</th>
-                <th className="sticky top-0 bg-white z-10">Issued</th>
-                <th className="sticky top-0 bg-white z-10">On Hand</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleStockLevels.map((s) => (
-                <tr key={s.itemId} className={s.lowStock ? "bg-amber-50" : undefined}>
-                  <td className="text-stone-500">{s.category}</td>
-                  <td>{s.name}</td>
-                  <td>
-                    {s.totalPurchased} {s.unit}
-                  </td>
-                  <td>
-                    {s.totalIssued} {s.unit}
-                  </td>
-                  <td className="font-medium">
-                    {s.remaining} {s.unit}
-                  </td>
+        <p className="text-sm text-stone-500 mb-3">
+          <span className="font-medium text-stone-700">On Hand</span> is what&apos;s in the store.{" "}
+          <span className="font-medium text-stone-700">Balance</span> is what&apos;s been issued to kitchen/bar and
+          not yet used.
+        </p>
+        <ListSearch scopeId="dashboard-stock-levels" label="Search stock levels by item or category" placeholder="Search by item or category..." />
+        <div data-search-scope="dashboard-stock-levels">
+          <ScrollableTable>
+            <table className="table-base">
+              <thead>
+                <tr>
+                  <th className="sticky top-0 bg-white z-10">Category</th>
+                  <th className="sticky top-0 bg-white z-10">Item</th>
+                  <th className="sticky top-0 bg-white z-10">Purchased</th>
+                  <th className="sticky top-0 bg-white z-10">Issued</th>
+                  <th className="sticky top-0 bg-white z-10">Used</th>
+                  <th className="sticky top-0 bg-white z-10">On Hand</th>
+                  <th className="sticky top-0 bg-white z-10">Balance</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </ScrollableTable>
+              </thead>
+              <tbody>
+                {visibleStockLevels.map((s) => (
+                  <tr
+                    key={s.itemId}
+                    data-search-row
+                    data-search={`${s.name} ${s.category}`.toLowerCase()}
+                    className={s.lowStock ? "bg-amber-50" : undefined}
+                  >
+                    <td className="text-stone-500">{s.category}</td>
+                    <td>{s.name}</td>
+                    <td>
+                      {s.totalPurchased} {s.unit}
+                    </td>
+                    <td>
+                      {s.totalIssued} {s.unit}
+                    </td>
+                    <td>
+                      {s.totalUsed} {s.unit}
+                    </td>
+                    <td className="font-medium">
+                      {s.remaining} {s.unit}
+                    </td>
+                    <td className="font-medium">
+                      {s.balance} {s.unit}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollableTable>
+          <p data-search-empty className="hidden text-sm text-stone-500 pt-2">
+            No items match your search.
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

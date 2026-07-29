@@ -17,6 +17,7 @@ export default function ConfirmDeleteForm({
     <button
       type="button"
       disabled={isPending}
+      aria-label={`Delete: ${confirmMessage}`}
       className="text-xs text-red-600 hover:underline whitespace-nowrap disabled:opacity-50"
       onClick={() => {
         if (!window.confirm(confirmMessage)) return;

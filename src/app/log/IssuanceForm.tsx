@@ -47,8 +47,11 @@ export default function IssuanceForm({ items, recipients }: { items: ItemOption[
       <CategoryItemPicker key={resetCount} items={items} itemFieldName="itemId" idPrefix="issuance" required />
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Quantity issued</label>
+          <label className="label" htmlFor="issuance-quantity">
+            Quantity issued
+          </label>
           <input
+            id="issuance-quantity"
             name="quantity"
             type="number"
             inputMode="decimal"
@@ -79,8 +82,10 @@ export default function IssuanceForm({ items, recipients }: { items: ItemOption[
         </div>
       </div>
       <div>
-        <label className="label">Notes (optional)</label>
-        <input name="notes" type="text" className="input" placeholder="e.g. for tonight's service" />
+        <label className="label" htmlFor="issuance-notes">
+          Notes (optional)
+        </label>
+        <input id="issuance-notes" name="notes" type="text" className="input" placeholder="e.g. for tonight's service" />
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state?.success && <p className="text-sm text-green-700">{state.success}</p>}

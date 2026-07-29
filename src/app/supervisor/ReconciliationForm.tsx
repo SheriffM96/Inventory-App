@@ -29,6 +29,8 @@ export default function ReconciliationForm({ menuItems }: { menuItems: MenuItemO
   const [transferTotal, setTransferTotal] = useState("");
   const [posTotal, setPosTotal] = useState("");
   const totalSales = (Number(cashTotal) || 0) + (Number(transferTotal) || 0) + (Number(posTotal) || 0);
+  const [itemSearch, setItemSearch] = useState("");
+  const itemSearchLower = itemSearch.trim().toLowerCase();
 
   useEffect(() => {
     if (state?.success) {
@@ -36,6 +38,7 @@ export default function ReconciliationForm({ menuItems }: { menuItems: MenuItemO
       setCashTotal("");
       setTransferTotal("");
       setPosTotal("");
+      setItemSearch("");
       setResetCount((c) => c + 1);
     }
   }, [state]);
@@ -54,8 +57,11 @@ export default function ReconciliationForm({ menuItems }: { menuItems: MenuItemO
     <form ref={formRef} action={formAction} className="space-y-5">
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="label">Cash</label>
+          <label className="label" htmlFor="recon-cash">
+            Cash
+          </label>
           <input
+            id="recon-cash"
             name="cashTotal"
             type="number"
             inputMode="decimal"
@@ -68,8 +74,11 @@ export default function ReconciliationForm({ menuItems }: { menuItems: MenuItemO
           />
         </div>
         <div>
-          <label className="label">Transfer</label>
+          <label className="label" htmlFor="recon-transfer">
+            Transfer
+          </label>
           <input
+            id="recon-transfer"
             name="transferTotal"
             type="number"
             inputMode="decimal"
@@ -82,8 +91,11 @@ export default function ReconciliationForm({ menuItems }: { menuItems: MenuItemO
           />
         </div>
         <div>
-          <label className="label">POS</label>
+          <label className="label" htmlFor="recon-pos">
+            POS
+          </label>
           <input
+            id="recon-pos"
             name="posTotal"
             type="number"
             inputMode="decimal"
@@ -108,35 +120,66 @@ export default function ReconciliationForm({ menuItems }: { menuItems: MenuItemO
             No menu items set up yet - ask your manager to add them under Items &amp; Vendors.
           </p>
         ) : (
-          <div key={resetCount} className="space-y-4 max-h-[24rem] overflow-y-auto pr-1">
-            {Array.from(byCategory.entries()).map(([category, categoryItems]) => (
-              <div key={category}>
-                <h4 className="text-sm font-semibold text-stone-500 mb-2">{category}</h4>
-                <div className="space-y-2">
-                  {categoryItems.map((item) => (
-                    <div key={item.id} className="grid grid-cols-[1fr_auto] items-center gap-3">
-                      <div className="text-sm">{item.name}</div>
-                      <input
-                        name={`qty_${item.id}`}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        placeholder="0"
-                        className="input w-28"
-                      />
+          <>
+            <label htmlFor="menu-item-search" className="sr-only">
+              Search menu items
+            </label>
+            <input
+              id="menu-item-search"
+              type="search"
+              value={itemSearch}
+              onChange={(e) => setItemSearch(e.target.value)}
+              placeholder="Search dishes/drinks..."
+              className="input mb-3 sm:max-w-xs"
+            />
+            <div key={resetCount} className="space-y-4 max-h-[24rem] overflow-y-auto pr-1">
+              {Array.from(byCategory.entries()).map(([category, categoryItems]) => {
+                const categoryHasMatch = categoryItems.some(
+                  (item) => !itemSearchLower || item.name.toLowerCase().includes(itemSearchLower)
+                );
+                return (
+                  <div key={category} className={categoryHasMatch ? undefined : "hidden"}>
+                    <h4 className="text-sm font-semibold text-stone-500 mb-2">{category}</h4>
+                    <div className="space-y-2">
+                      {categoryItems.map((item) => {
+                        const matches = !itemSearchLower || item.name.toLowerCase().includes(itemSearchLower);
+                        return (
+                          <div
+                            key={item.id}
+                            className={`grid grid-cols-[1fr_auto] items-center gap-3 ${matches ? "" : "hidden"}`}
+                          >
+                            <div className="text-sm">{item.name}</div>
+                            <input
+                              name={`qty_${item.id}`}
+                              aria-label={`Quantity sold: ${item.name}`}
+                              type="number"
+                              inputMode="decimal"
+                              step="0.01"
+                              min="0"
+                              placeholder="0"
+                              className="input w-28"
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+                  </div>
+                );
+              })}
+              {!Array.from(byCategory.values()).some((categoryItems) =>
+                categoryItems.some((item) => !itemSearchLower || item.name.toLowerCase().includes(itemSearchLower))
+              ) && <p className="text-sm text-stone-500">No dishes/drinks match your search.</p>}
+            </div>
+          </>
         )}
       </div>
 
       <div>
-        <label className="label">Notes (optional)</label>
+        <label className="label" htmlFor="recon-notes">
+          Notes (optional)
+        </label>
         <input
+          id="recon-notes"
           name="notes"
           type="text"
           className="input"

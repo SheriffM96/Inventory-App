@@ -7,6 +7,7 @@ import ImportItemsForm from "./ImportItemsForm";
 import AddVendorForm from "./AddVendorForm";
 import AddRecipientForm from "./AddRecipientForm";
 import AddMenuItemForm from "./AddMenuItemForm";
+import ListSearch from "@/components/ListSearch";
 import { toggleItemActiveAction, updateItemAction } from "./actions";
 import { toggleVendorActiveAction } from "./vendor-actions";
 import { toggleRecipientActiveAction } from "./recipient-actions";
@@ -51,7 +52,8 @@ export default async function ItemsPage() {
 
       <div className="card">
         <h2 className="text-lg font-semibold mb-3">All Items ({items.length})</h2>
-        <div className="overflow-x-auto">
+        <ListSearch scopeId="all-items" label="Search items by name or category" placeholder="Search by name or category..." />
+        <div data-search-scope="all-items" className="overflow-x-auto">
           <table className="table-base">
             <thead>
               <tr>
@@ -68,7 +70,12 @@ export default async function ItemsPage() {
                 const formId = `item-form-${item.id}`;
                 const toggleFormId = `item-toggle-form-${item.id}`;
                 return (
-                  <tr key={item.id} className={!item.active ? "bg-stone-100 opacity-60" : undefined}>
+                  <tr
+                    key={item.id}
+                    data-search-row
+                    data-search={`${item.name} ${item.category}`.toLowerCase()}
+                    className={!item.active ? "bg-stone-100 opacity-60" : undefined}
+                  >
                     <td>
                       <form id={formId} action={updateItemAction}>
                         <input type="hidden" name="id" value={item.id} />
@@ -135,7 +142,12 @@ export default async function ItemsPage() {
                         <input type="hidden" name="id" value={item.id} />
                         <input type="hidden" name="active" value={String(item.active)} />
                       </form>
-                      <button form={toggleFormId} type="submit" className="btn-secondary py-1 px-2 text-xs">
+                      <button
+                        form={toggleFormId}
+                        type="submit"
+                        aria-label={`${item.active ? "Deactivate" : "Activate"} ${item.name}`}
+                        className="btn-secondary py-1 px-2 text-xs"
+                      >
                         {item.active ? "Deactivate" : "Activate"}
                       </button>
                     </td>
@@ -144,6 +156,9 @@ export default async function ItemsPage() {
               })}
             </tbody>
           </table>
+          <p data-search-empty className="hidden text-sm text-stone-500 pt-2">
+            No items match your search.
+          </p>
         </div>
       </div>
 
@@ -151,10 +166,15 @@ export default async function ItemsPage() {
         <h2 className="text-lg font-semibold mb-3">Vendors ({vendors.length})</h2>
         <p className="text-sm text-stone-600 mb-3">Suppliers you buy stock from - picked when logging a purchase.</p>
         <AddVendorForm />
-        <div className="mt-4 space-y-2">
+        {vendors.length > 0 && (
+          <ListSearch scopeId="vendors" label="Search vendors by name" placeholder="Search vendors..." />
+        )}
+        <div data-search-scope="vendors" className="mt-4 space-y-2">
           {vendors.map((vendor) => (
             <div
               key={vendor.id}
+              data-search-row
+              data-search={vendor.name.toLowerCase()}
               className={`flex items-center justify-between border-b border-stone-100 pb-2 ${
                 !vendor.active ? "opacity-50" : ""
               }`}
@@ -163,13 +183,20 @@ export default async function ItemsPage() {
               <form action={toggleVendorActiveAction}>
                 <input type="hidden" name="id" value={vendor.id} />
                 <input type="hidden" name="active" value={String(vendor.active)} />
-                <button type="submit" className="btn-secondary py-1 px-2 text-xs">
+                <button
+                  type="submit"
+                  aria-label={`${vendor.active ? "Deactivate" : "Activate"} ${vendor.name}`}
+                  className="btn-secondary py-1 px-2 text-xs"
+                >
                   {vendor.active ? "Deactivate" : "Activate"}
                 </button>
               </form>
             </div>
           ))}
           {vendors.length === 0 && <p className="text-sm text-stone-500">No vendors added yet.</p>}
+          <p data-search-empty className="hidden text-sm text-stone-500">
+            No vendors match your search.
+          </p>
         </div>
       </div>
 
@@ -179,10 +206,15 @@ export default async function ItemsPage() {
           Named people the storekeeper issues stock to - grouped by kitchen, bar, or cleaning team.
         </p>
         <AddRecipientForm />
-        <div className="mt-4 space-y-2">
+        {recipients.length > 0 && (
+          <ListSearch scopeId="recipients" label="Search recipients by name or team" placeholder="Search recipients..." />
+        )}
+        <div data-search-scope="recipients" className="mt-4 space-y-2">
           {recipients.map((recipient) => (
             <div
               key={recipient.id}
+              data-search-row
+              data-search={`${recipient.name} ${TEAM_LABELS[recipient.team]}`.toLowerCase()}
               className={`flex items-center justify-between border-b border-stone-100 pb-2 ${
                 !recipient.active ? "opacity-50" : ""
               }`}
@@ -193,13 +225,20 @@ export default async function ItemsPage() {
               <form action={toggleRecipientActiveAction}>
                 <input type="hidden" name="id" value={recipient.id} />
                 <input type="hidden" name="active" value={String(recipient.active)} />
-                <button type="submit" className="btn-secondary py-1 px-2 text-xs">
+                <button
+                  type="submit"
+                  aria-label={`${recipient.active ? "Deactivate" : "Activate"} ${recipient.name}`}
+                  className="btn-secondary py-1 px-2 text-xs"
+                >
                   {recipient.active ? "Deactivate" : "Activate"}
                 </button>
               </form>
             </div>
           ))}
           {recipients.length === 0 && <p className="text-sm text-stone-500">No recipients added yet.</p>}
+          <p data-search-empty className="hidden text-sm text-stone-500">
+            No recipients match your search.
+          </p>
         </div>
       </div>
 
@@ -209,10 +248,15 @@ export default async function ItemsPage() {
           Sellable dishes/drinks - the supervisor logs quantity sold per item in the end-of-day reconciliation.
         </p>
         <AddMenuItemForm categories={menuCategories} />
-        <div className="mt-4 space-y-2">
+        {menuItems.length > 0 && (
+          <ListSearch scopeId="menu-items" label="Search menu items by name or category" placeholder="Search menu items..." />
+        )}
+        <div data-search-scope="menu-items" className="mt-4 space-y-2">
           {menuItems.map((menuItem) => (
             <div
               key={menuItem.id}
+              data-search-row
+              data-search={`${menuItem.name} ${menuItem.category}`.toLowerCase()}
               className={`flex items-center justify-between border-b border-stone-100 pb-2 ${
                 !menuItem.active ? "opacity-50" : ""
               }`}
@@ -227,7 +271,11 @@ export default async function ItemsPage() {
                 <form action={toggleMenuItemActiveAction}>
                   <input type="hidden" name="id" value={menuItem.id} />
                   <input type="hidden" name="active" value={String(menuItem.active)} />
-                  <button type="submit" className="btn-secondary py-1 px-2 text-xs">
+                  <button
+                    type="submit"
+                    aria-label={`${menuItem.active ? "Deactivate" : "Activate"} ${menuItem.name}`}
+                    className="btn-secondary py-1 px-2 text-xs"
+                  >
                     {menuItem.active ? "Deactivate" : "Activate"}
                   </button>
                 </form>
@@ -235,6 +283,9 @@ export default async function ItemsPage() {
             </div>
           ))}
           {menuItems.length === 0 && <p className="text-sm text-stone-500">No menu items added yet.</p>}
+          <p data-search-empty className="hidden text-sm text-stone-500">
+            No menu items match your search.
+          </p>
         </div>
       </div>
     </div>

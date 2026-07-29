@@ -34,8 +34,11 @@ export default function PurchaseForm({ items, vendors }: { items: ItemOption[]; 
       <CategoryItemPicker key={resetCount} items={items} itemFieldName="itemId" idPrefix="purchase" required />
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Quantity bought</label>
+          <label className="label" htmlFor="purchase-quantity">
+            Quantity bought
+          </label>
           <input
+            id="purchase-quantity"
             name="quantity"
             type="number"
             inputMode="decimal"
@@ -46,8 +49,11 @@ export default function PurchaseForm({ items, vendors }: { items: ItemOption[]; 
           />
         </div>
         <div>
-          <label className="label">Cost (total paid)</label>
+          <label className="label" htmlFor="purchase-cost">
+            Cost (total paid)
+          </label>
           <input
+            id="purchase-cost"
             name="cost"
             type="number"
             inputMode="decimal"
@@ -74,8 +80,10 @@ export default function PurchaseForm({ items, vendors }: { items: ItemOption[]; 
         </select>
       </div>
       <div>
-        <label className="label">Notes (optional)</label>
-        <input name="notes" type="text" className="input" placeholder="e.g. delivery reference" />
+        <label className="label" htmlFor="purchase-notes">
+          Notes (optional)
+        </label>
+        <input id="purchase-notes" name="notes" type="text" className="input" placeholder="e.g. delivery reference" />
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state?.success && <p className="text-sm text-green-700">{state.success}</p>}

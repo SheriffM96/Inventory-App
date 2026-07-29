@@ -25,12 +25,16 @@ export default function AddRecipientForm() {
   return (
     <form ref={formRef} action={formAction} className="flex flex-wrap gap-3 items-end">
       <div>
-        <label className="label">Name</label>
-        <input name="name" type="text" className="input" required />
+        <label className="label" htmlFor="new-recipient-name">
+          Name
+        </label>
+        <input id="new-recipient-name" name="name" type="text" className="input" required />
       </div>
       <div>
-        <label className="label">Team</label>
-        <select name="team" className="input" defaultValue="KITCHEN">
+        <label className="label" htmlFor="new-recipient-team">
+          Team
+        </label>
+        <select id="new-recipient-team" name="team" className="input" defaultValue="KITCHEN">
           <option value="KITCHEN">Kitchen</option>
           <option value="BAR">Bar</option>
           <option value="CLEANING">Cleaning</option>

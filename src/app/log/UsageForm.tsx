@@ -31,8 +31,11 @@ export default function UsageForm({ items }: { items: ItemOption[] }) {
     <form ref={formRef} action={formAction} className="space-y-3">
       <CategoryItemPicker key={resetCount} items={items} itemFieldName="itemId" idPrefix="usage" required />
       <div>
-        <label className="label">Quantity used</label>
+        <label className="label" htmlFor="usage-quantity">
+          Quantity used
+        </label>
         <input
+          id="usage-quantity"
           name="quantity"
           type="number"
           inputMode="decimal"
@@ -43,8 +46,10 @@ export default function UsageForm({ items }: { items: ItemOption[] }) {
         />
       </div>
       <div>
-        <label className="label">Notes (optional)</label>
-        <input name="notes" type="text" className="input" placeholder="e.g. for tonight's service" />
+        <label className="label" htmlFor="usage-notes">
+          Notes (optional)
+        </label>
+        <input id="usage-notes" name="notes" type="text" className="input" placeholder="e.g. for tonight's service" />
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state?.success && <p className="text-sm text-green-700">{state.success}</p>}

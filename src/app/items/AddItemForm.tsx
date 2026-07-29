@@ -26,12 +26,16 @@ export default function AddItemForm({ categories }: { categories: string[] }) {
   return (
     <form ref={formRef} action={formAction} className="grid gap-3 sm:grid-cols-5 items-end">
       <div className="sm:col-span-2">
-        <label className="label">Item name</label>
-        <input name="name" type="text" className="input" required />
+        <label className="label" htmlFor="new-item-name">
+          Item name
+        </label>
+        <input id="new-item-name" name="name" type="text" className="input" required />
       </div>
       <div>
-        <label className="label">Category</label>
-        <input name="category" type="text" list="categories" className="input" required />
+        <label className="label" htmlFor="new-item-category">
+          Category
+        </label>
+        <input id="new-item-category" name="category" type="text" list="categories" className="input" required />
         <datalist id="categories">
           {categories.map((c) => (
             <option key={c} value={c} />
@@ -39,8 +43,10 @@ export default function AddItemForm({ categories }: { categories: string[] }) {
         </datalist>
       </div>
       <div>
-        <label className="label">Unit</label>
-        <select name="unit" className="input" defaultValue="" required>
+        <label className="label" htmlFor="new-item-unit">
+          Unit
+        </label>
+        <select id="new-item-unit" name="unit" className="input" defaultValue="" required>
           <option value="" disabled>
             Select a unit
           </option>
@@ -52,8 +58,18 @@ export default function AddItemForm({ categories }: { categories: string[] }) {
         </select>
       </div>
       <div>
-        <label className="label">Reorder level (optional)</label>
-        <input name="reorderLevel" type="number" inputMode="decimal" step="0.01" min="0" className="input" />
+        <label className="label" htmlFor="new-item-reorder">
+          Reorder level (optional)
+        </label>
+        <input
+          id="new-item-reorder"
+          name="reorderLevel"
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          className="input"
+        />
       </div>
       <div className="sm:col-span-5">
         {state?.error && <p className="text-sm text-red-600 mb-2">{state.error}</p>}

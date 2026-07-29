@@ -25,8 +25,10 @@ export default function AddVendorForm() {
   return (
     <form ref={formRef} action={formAction} className="flex flex-wrap gap-3 items-end">
       <div>
-        <label className="label">Vendor name</label>
-        <input name="name" type="text" className="input" required />
+        <label className="label" htmlFor="new-vendor-name">
+          Vendor name
+        </label>
+        <input id="new-vendor-name" name="name" type="text" className="input" required />
       </div>
       <SubmitButton />
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}

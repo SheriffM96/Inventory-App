@@ -25,12 +25,23 @@ export default function AddMenuItemForm({ categories }: { categories: string[] }
   return (
     <form ref={formRef} action={formAction} className="flex flex-wrap gap-3 items-end">
       <div>
-        <label className="label">Dish/drink name</label>
-        <input name="name" type="text" className="input" required />
+        <label className="label" htmlFor="new-menu-item-name">
+          Dish/drink name
+        </label>
+        <input id="new-menu-item-name" name="name" type="text" className="input" required />
       </div>
       <div>
-        <label className="label">Category</label>
-        <input name="category" type="text" list="menu-categories" className="input" required />
+        <label className="label" htmlFor="new-menu-item-category">
+          Category
+        </label>
+        <input
+          id="new-menu-item-category"
+          name="category"
+          type="text"
+          list="menu-categories"
+          className="input"
+          required
+        />
         <datalist id="menu-categories">
           {categories.map((c) => (
             <option key={c} value={c} />

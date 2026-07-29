@@ -32,8 +32,11 @@ export default function AddRecipeItemForm({ menuItemId, items }: { menuItemId: s
       <input type="hidden" name="menuItemId" value={menuItemId} />
       <CategoryItemPicker key={resetCount} items={items} itemFieldName="itemId" idPrefix="recipe-item" required />
       <div>
-        <label className="label">Quantity per unit sold</label>
+        <label className="label" htmlFor="recipe-qty-per-unit">
+          Quantity per unit sold
+        </label>
         <input
+          id="recipe-qty-per-unit"
           name="quantityPerUnit"
           type="number"
           inputMode="decimal"
