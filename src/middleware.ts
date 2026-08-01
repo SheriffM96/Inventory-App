@@ -13,6 +13,7 @@ const PREFIX_ROLES: Record<string, Role[]> = {
   "/api/items": ["MANAGER"],
   "/log": ["STOREKEEPER", "KITCHEN", "BAR"],
   "/supervisor": ["SUPERVISOR"],
+  "/stock": ["STOREKEEPER", "MANAGER"],
 };
 const PUBLIC_PATHS = ["/login"];
 
